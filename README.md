@@ -1,20 +1,19 @@
 # Convertidor SAT a Excel
 
-Miniapp de Streamlit que permite convertir desde un solo archivo hasta múltiples archivos en una misma carga.
+Miniapp de Streamlit que permite:
 
-## Funciones
-
-- Carga uno o varios archivos ZIP, TXT o CSV.
-- Detecta automáticamente separadores como `~`, `|`, `;`, tabulación o coma.
-- Permite indicar manualmente el separador.
-- Detecta codificación UTF-8, Windows-1252 y Latin-1.
-- Si un ZIP contiene varios TXT o CSV, cada uno se convierte en una hoja del mismo Excel.
-- Genera un archivo XLSX independiente por cada archivo cargado.
-- Permite descargar cada XLSX por separado.
-- Cuando se cargan varios archivos, permite descargar todos los XLSX dentro de un solo ZIP.
-- Conserva RFC, UUID, códigos y ceros a la izquierda como texto.
-- Muestra una vista previa de hasta 100 registros por tabla.
-- Si un archivo falla, continúa procesando los demás y muestra el error individual.
+- Cargar uno o varios archivos ZIP, TXT, CSV o XML.
+- Detectar automáticamente separadores como `~`, `|`, `;`, tabulador o coma.
+- Convertir XML CFDI a hojas de Excel estructuradas.
+- Crear hojas para resumen, emisor, receptor, conceptos, impuestos, CFDI relacionados, timbre, complementos, pagos y detalle XML completo.
+- Conservar toda la información de un XML genérico en la hoja `XML_Detalle`.
+- Consolidar varios XML incluidos dentro de un ZIP en un solo Excel.
+- Crear un Excel independiente por cada archivo cargado.
+- Crear una hoja por cada TXT/CSV incluido dentro de un ZIP.
+- Descargar cada Excel individualmente.
+- Descargar todos los Excel dentro de un solo ZIP.
+- Mantener UUID, RFC, códigos, números largos y ceros iniciales como texto.
+- Mostrar una vista previa antes de descargar.
 
 ## Ejecutar localmente
 
@@ -27,9 +26,6 @@ streamlit run app.py
 
 1. Crea un repositorio en GitHub.
 2. Sube `app.py`, `requirements.txt` y `README.md`.
-3. Entra a Streamlit Community Cloud.
-4. Crea una aplicación nueva y selecciona el repositorio.
-5. Usa `app.py` como archivo principal.
-6. Pulsa **Deploy**.
-
-La conversión se realiza en memoria; la app no necesita guardar permanentemente los archivos cargados.
+3. Crea una aplicación en Streamlit Community Cloud.
+4. Selecciona `app.py` como archivo principal.
+5. Pulsa **Deploy**.
