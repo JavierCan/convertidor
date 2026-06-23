@@ -2126,7 +2126,7 @@ if st.session_state.download_data:
 
     st.markdown(
         '<div class="signature">'
-        'Aquí debe descargarlo ella 👆<br>'
+
         'Hecho por tu novio el ingeniero xd 😎'
         '</div>',
         unsafe_allow_html=True,
