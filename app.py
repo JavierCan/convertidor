@@ -1,1180 +1,411 @@
+from __future__ import annotations
+
 import io
 import re
+import time
 import zipfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Iterable
+import xml.etree.ElementTree as ET
 
 import pandas as pd
 import streamlit as st
-from defusedxml import ElementTree as ET
-from openpyxl.styles import Alignment, Font, PatternFill
+import streamlit.components.v1 as components
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-
-# ============================================================
-# CONFIGURACIÓN GENERAL
-# ============================================================
-
-st.set_page_config(
-    page_title="Convertidor SAT a Excel",
-    page_icon="📄",
-    layout="wide",
-)
+st.set_page_config(page_title="CFDI a Excel", page_icon="🧾", layout="wide")
+BASE_DIR = Path(__file__).parent
+ASSETS = BASE_DIR / "assets"
+PREVIEW_XML_LIMIT = 20
+PREVIEW_ROW_LIMIT = 25
+EXCEL_MAX_ROWS = 1_048_576
+TECHNICAL_FIELDS = {"Sello", "Certificado", "SelloCFD", "SelloSAT"}
 
 
-# ============================================================
-# ESTILOS
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-    /* Botones de descarga verdes */
-    [data-testid="stDownloadButton"] button,
-    div.stDownloadButton > button,
-    div.stDownloadButton > button[kind="primary"],
-    div.stDownloadButton > button[kind="secondary"] {
-        background-color: #28a745 !important;
-        color: #ffffff !important;
-        border: 1px solid #28a745 !important;
-        border-radius: 12px !important;
-        font-weight: 700 !important;
-        padding: 0.75rem 1rem !important;
-        width: 100% !important;
-        min-height: 48px !important;
-        font-size: 1rem !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-
-    [data-testid="stDownloadButton"] button:hover,
-    [data-testid="stDownloadButton"] button:focus,
-    div.stDownloadButton > button:hover,
-    div.stDownloadButton > button:focus {
-        background-color: #218838 !important;
-        border-color: #1e7e34 !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.28) !important;
-        transform: translateY(-1px) !important;
-    }
-
-    [data-testid="stDownloadButton"] button:active,
-    div.stDownloadButton > button:active {
-        background-color: #1e7e34 !important;
-        border-color: #1e7e34 !important;
-        color: #ffffff !important;
-        transform: translateY(0) !important;
-    }
-
-    .texto-descarga {
-        text-align: center;
-        font-size: 0.95rem;
-        color: #555555;
-        margin-top: 0.35rem;
-        margin-bottom: 1rem;
-    }
-
-    .firma-app {
-        text-align: center;
-        font-size: 0.98rem;
-        color: #777777;
-        margin-top: 2.5rem;
-        margin-bottom: 1.25rem;
-        font-style: italic;
-    }
-
-    .archivo-titulo {
-        font-size: 1.08rem;
-        font-weight: 700;
-        margin-top: 0.25rem;
-        margin-bottom: 0.5rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+def load_asset(name: str) -> str:
+    p = ASSETS / name
+    return p.read_text(encoding="utf-8") if p.exists() else ""
 
 
-# ============================================================
-# ENCABEZADO
-# ============================================================
+html = load_asset("index.html")
+html = html.replace("/*__INLINE_CSS__*/", load_asset("styles.css"))
+html = html.replace("/*__INLINE_JS__*/", load_asset("script.js"))
+components.html(html, height=300, scrolling=False)
 
-st.title("📄 Convertidor de archivos SAT a Excel")
-st.write(
-    "Carga **uno o varios archivos ZIP, TXT, CSV o XML**. La aplicación "
-    "genera un archivo **Excel (.xlsx)** por cada archivo cargado y también "
-    "puede agrupar todos los Excel en un solo ZIP. Los XML CFDI se organizan "
-    "automáticamente en hojas como resumen, emisor, receptor, conceptos, "
-    "impuestos y detalle completo del XML."
-)
-
-
-# ============================================================
-# CONSTANTES
-# ============================================================
-
-FORMATOS_COMPATIBLES = {".txt", ".csv", ".xml"}
-MAX_FILAS_POR_HOJA = 1_048_575  # Se reserva una fila para encabezados.
-
-ORDEN_TABLAS_XML = [
-    "XML_Resumen",
-    "XML_Emisor",
-    "XML_Receptor",
-    "XML_Conceptos",
-    "XML_Impuestos",
-    "XML_Relacionados",
-    "XML_Timbre",
-    "XML_Complementos",
-    "XML_Pagos",
-    "XML_DoctosPago",
-    "XML_TotalesPago",
-    "XML_Detalle",
-]
+st.markdown("""
+<style>
+.block-container{padding-top:1rem;padding-bottom:3rem;max-width:1500px}
+div[data-testid="stFileUploader"]{border:2px dashed #16a34a;border-radius:18px;padding:10px;background:#f0fdf4}
+div.stButton>button,div.stDownloadButton>button{width:100%;border-radius:12px;font-weight:700;min-height:46px}
+div.stButton>button[kind="primary"],div.stDownloadButton>button{background:linear-gradient(135deg,#16a34a,#15803d)!important;color:white!important;border:none!important}
+div.stButton>button[kind="primary"]:hover,div.stDownloadButton>button:hover{background:linear-gradient(135deg,#15803d,#166534)!important;color:white!important}
+.signature{text-align:center;color:#64748b;font-size:.95rem;margin-top:1rem;font-style:italic}
+</style>
+""", unsafe_allow_html=True)
 
 
-# ============================================================
-# FUNCIONES GENERALES
-# ============================================================
+def local_name(tag: str) -> str:
+    return tag.split("}")[-1] if "}" in tag else tag.split(":")[-1]
 
 
-def limpiar_nombre_hoja(nombre: str, usados: Set[str]) -> str:
-    """Genera un nombre de hoja válido y único para Excel."""
-    nombre_limpio = Path(nombre).stem
-
-    for caracter in ['\\', '/', '*', '?', ':', '[', ']']:
-        nombre_limpio = nombre_limpio.replace(caracter, "_")
-
-    nombre_limpio = nombre_limpio.strip() or "Hoja"
-    nombre_limpio = nombre_limpio[:31]
-
-    nombre_base = nombre_limpio
-    contador = 1
-
-    while nombre_limpio.lower() in {item.lower() for item in usados}:
-        sufijo = f"_{contador}"
-        nombre_limpio = f"{nombre_base[:31 - len(sufijo)]}{sufijo}"
-        contador += 1
-
-    usados.add(nombre_limpio)
-    return nombre_limpio
+def normalize_col(name: str) -> str:
+    name = re.sub(r"\s+", "_", str(name).strip())
+    name = re.sub(r"[^A-Za-z0-9_áéíóúÁÉÍÓÚñÑ.-]", "_", name)
+    return re.sub(r"_+", "_", name).strip("_")
 
 
-def detectar_separador(contenido: bytes, codificacion: str) -> str:
-    """Detecta el separador más probable a partir de las primeras líneas."""
-    texto = contenido.decode(codificacion, errors="ignore")
-    lineas = [linea for linea in texto.splitlines()[:10] if linea.strip()]
+def identify_xml_type(root: ET.Element) -> str:
+    root_name = local_name(root.tag)
+    version = root.attrib.get("Version") or root.attrib.get("version") or ""
+    names = {local_name(el.tag) for el in root.iter()}
+    if root_name == "Comprobante":
+        if {"Pagos", "Pago", "DoctoRelacionado"} & names:
+            return f"CFDI {version or 'sin versión'} - Complemento de pago"
+        return f"CFDI {version or 'sin versión'}"
+    return f"XML genérico - {root_name}"
 
-    if not lineas:
-        return "~"
 
-    candidatos = ["~", "|", ";", "\t", ","]
-    puntuaciones: Dict[str, int] = {}
+def collect_flat(
+    element: ET.Element,
+    prefix: str = "",
+    skip_tags: set[str] | None = None,
+    exclude_technical: bool = True,
+) -> dict[str, str]:
+    """Aplana atributos y textos del XML sin depender de campos específicos."""
+    skip_tags = skip_tags or set()
+    result: dict[str, str] = {}
+    name = local_name(element.tag)
+    if name in skip_tags:
+        return result
+    path = normalize_col(f"{prefix}_{name}" if prefix else name)
 
-    for separador in candidatos:
-        conteos = [linea.count(separador) for linea in lineas]
-        no_cero = [conteo for conteo in conteos if conteo > 0]
-
-        if not no_cero:
-            puntuaciones[separador] = 0
+    for attr, value in element.attrib.items():
+        attr_name = local_name(attr)
+        if exclude_technical and attr_name in TECHNICAL_FIELDS:
             continue
+        result[normalize_col(f"{path}_{attr_name}")] = value
 
-        consistencia = len(no_cero) * 100
-        frecuencia = sum(no_cero)
-        variacion = max(no_cero) - min(no_cero)
-        puntuaciones[separador] = consistencia + frecuencia - variacion
+    text = (element.text or "").strip()
+    if text and len(element) == 0:
+        result[normalize_col(f"{path}_Texto")] = text
 
-    mejor = max(puntuaciones, key=puntuaciones.get)
-    return mejor if puntuaciones[mejor] > 0 else "~"
+    counts = Counter(local_name(child.tag) for child in element)
+    occurrences: defaultdict[str, int] = defaultdict(int)
 
+    for child in element:
+        child_name = local_name(child.tag)
+        occurrences[child_name] += 1
+        child_prefix = path
+        if counts[child_name] > 1:
+            child_prefix = normalize_col(f"{path}_{child_name}_{occurrences[child_name]}")
+            child_prefix = child_prefix.rsplit("_", 1)[0]
 
-def leer_tabla(
-    contenido: bytes,
-    nombre_archivo: str,
-    separador_manual: Optional[str] = None,
-) -> Dict:
-    """
-    Lee un TXT o CSV probando varias codificaciones.
-    Mantiene todas las columnas como texto para proteger UUID, RFC y claves.
-    """
-    codificaciones = ["utf-8-sig", "utf-8", "cp1252", "latin-1"]
-    errores: List[str] = []
+        child_data = collect_flat(
+            child,
+            prefix=child_prefix,
+            skip_tags=skip_tags,
+            exclude_technical=exclude_technical,
+        )
+        for key, value in child_data.items():
+            candidate = key
+            idx = 2
+            while candidate in result and result[candidate] != value:
+                candidate = f"{key}_{idx}"
+                idx += 1
+            result[candidate] = value
 
-    for codificacion in codificaciones:
-        try:
-            separador = (
-                separador_manual
-                if separador_manual
-                else detectar_separador(contenido, codificacion)
-            )
-
-            dataframe = pd.read_csv(
-                io.BytesIO(contenido),
-                sep=separador,
-                encoding=codificacion,
-                dtype=str,
-                keep_default_na=False,
-                engine="python",
-                on_bad_lines="warn",
-            )
-
-            dataframe.columns = [
-                str(columna).replace("\ufeff", "").strip()
-                for columna in dataframe.columns
-            ]
-
-            columnas_validas: List[str] = []
-            for columna in dataframe.columns:
-                nombre_no_vacio = str(columna).strip() != ""
-                contenido_no_vacio = (
-                    dataframe[columna]
-                    .astype(str)
-                    .str.strip()
-                    .ne("")
-                    .any()
-                )
-
-                if nombre_no_vacio or contenido_no_vacio:
-                    columnas_validas.append(columna)
-
-            dataframe = dataframe[columnas_validas]
-
-            if len(dataframe.columns) <= 1:
-                raise ValueError(
-                    "Solo se detectó una columna. Revisa el separador seleccionado."
-                )
-
-            if dataframe.empty:
-                raise ValueError("El archivo no contiene registros de datos.")
-
-            return {
-                "nombre": nombre_archivo,
-                "archivo_origen": nombre_archivo,
-                "dataframe": dataframe,
-                "codificacion": codificacion,
-                "separador": separador,
-                "formato": Path(nombre_archivo).suffix.upper().replace(".", ""),
-            }
-
-        except Exception as error:
-            errores.append(f"{codificacion}: {error}")
-
-    detalle = "\n".join(errores)
-    raise ValueError(
-        f"No fue posible leer {nombre_archivo}.\n\n{detalle}"
-    )
+    return result
 
 
-# ============================================================
-# FUNCIONES XML
-# ============================================================
+def find_elements(root: ET.Element, tag_name: str) -> list[ET.Element]:
+    return [el for el in root.iter() if local_name(el.tag) == tag_name]
 
 
-def nombre_local(valor) -> str:
-    """Elimina el namespace de una etiqueta o atributo XML."""
-    texto = str(valor)
-    if "}" in texto:
-        texto = texto.split("}", 1)[1]
-    if ":" in texto:
-        texto = texto.split(":", 1)[1]
-    return texto
-
-
-def detectar_codificacion_xml(contenido: bytes) -> str:
-    """Obtiene la codificación declarada en el encabezado XML."""
-    coincidencia = re.search(
-        br"<\?xml[^>]*encoding=[\"']([^\"']+)[\"']",
-        contenido[:500],
-        flags=re.IGNORECASE,
-    )
-    if coincidencia:
-        return coincidencia.group(1).decode("ascii", errors="replace")
-    return "No declarada"
-
-
-def atributos_elemento(elemento) -> Dict[str, str]:
-    """Devuelve los atributos XML sin namespaces."""
-    resultado: Dict[str, str] = {}
-    repetidos: Dict[str, int] = defaultdict(int)
-
-    for clave, valor in elemento.attrib.items():
-        clave_limpia = nombre_local(clave)
-        repetidos[clave_limpia] += 1
-
-        if repetidos[clave_limpia] > 1:
-            clave_limpia = f"{clave_limpia}_{repetidos[clave_limpia]}"
-
-        resultado[clave_limpia] = str(valor)
-
-    return resultado
-
-
-def buscar_elementos(raiz, etiqueta: str) -> List:
-    """Busca elementos por nombre local ignorando namespaces y mayúsculas."""
-    objetivo = etiqueta.lower()
-    return [
-        elemento
-        for elemento in raiz.iter()
-        if nombre_local(elemento.tag).lower() == objetivo
-    ]
-
-
-def buscar_hijo_directo(elemento, etiqueta: str):
-    """Busca el primer hijo directo por nombre local."""
-    objetivo = etiqueta.lower()
-    for hijo in list(elemento):
-        if nombre_local(hijo.tag).lower() == objetivo:
-            return hijo
-    return None
-
-
-def construir_detalle_xml(raiz, nombre_archivo: str) -> pd.DataFrame:
-    """
-    Genera una tabla vertical que conserva todos los atributos y textos
-    encontrados en el XML, incluso cuando no es un CFDI estándar.
-    """
-    filas: List[Dict[str, str]] = []
-
-    def recorrer(elemento, ruta_padre: str, indice_hermano: int) -> None:
-        etiqueta = nombre_local(elemento.tag)
-        ruta_actual = f"{ruta_padre}/{etiqueta}[{indice_hermano}]"
-
-        for atributo, valor in atributos_elemento(elemento).items():
-            filas.append(
-                {
-                    "Archivo_XML": nombre_archivo,
-                    "Ruta": ruta_actual,
-                    "Elemento": etiqueta,
-                    "Tipo": "Atributo",
-                    "Campo": atributo,
-                    "Valor": valor,
-                }
-            )
-
-        texto = (elemento.text or "").strip()
-        if texto:
-            filas.append(
-                {
-                    "Archivo_XML": nombre_archivo,
-                    "Ruta": ruta_actual,
-                    "Elemento": etiqueta,
-                    "Tipo": "Texto",
-                    "Campo": "Texto",
-                    "Valor": texto,
-                }
-            )
-
-        contadores_hijos: Dict[str, int] = defaultdict(int)
-        for hijo in list(elemento):
-            etiqueta_hijo = nombre_local(hijo.tag)
-            contadores_hijos[etiqueta_hijo] += 1
-            recorrer(
-                hijo,
-                ruta_actual,
-                contadores_hijos[etiqueta_hijo],
-            )
-
-    recorrer(raiz, "", 1)
-
-    return pd.DataFrame(
-        filas,
-        columns=[
-            "Archivo_XML",
-            "Ruta",
-            "Elemento",
-            "Tipo",
-            "Campo",
-            "Valor",
-        ],
-    )
-
-
-def parsear_xml(contenido: bytes, nombre_archivo: str) -> List[Dict]:
-    """
-    Convierte un XML CFDI —o un XML genérico— en varias tablas de Excel.
-    Siempre crea un resumen y un detalle completo para evitar pérdida de datos.
-    """
+def parse_xml(
+    raw: bytes,
+    source_name: str,
+    representation: str,
+    exclude_technical: bool,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     try:
-        raiz = ET.fromstring(contenido)
-    except ET.ParseError as error:
-        raise ValueError(
-            f"El XML {nombre_archivo} no es válido o está incompleto: {error}"
-        ) from error
-    except Exception as error:
-        raise ValueError(
-            f"No fue posible procesar el XML {nombre_archivo}: {error}"
-        ) from error
+        root = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        raise ValueError(f"XML inválido: {exc}") from exc
 
-    codificacion = detectar_codificacion_xml(contenido)
-    tablas_datos: Dict[str, List[Dict]] = defaultdict(list)
+    xml_type = identify_xml_type(root)
+    concepts = find_elements(root, "Concepto")
+    base = {"Archivo_XML": source_name, "Tipo_XML": xml_type}
+    base.update(collect_flat(root, skip_tags={"Conceptos"}, exclude_technical=exclude_technical))
 
-    # --------------------------------------------------------
-    # RESUMEN GENERAL DEL CFDI / XML
-    # --------------------------------------------------------
+    meta = {"tipo": xml_type, "conceptos": len(concepts)}
 
-    resumen: Dict[str, str] = {
-        "Archivo_XML": nombre_archivo,
-        "Elemento_Raiz": nombre_local(raiz.tag),
-        "Codificacion_XML": codificacion,
-    }
+    if representation == "por_comprobante":
+        row = dict(base)
+        row["Total_Conceptos"] = len(concepts)
+        for idx, concept in enumerate(concepts, start=1):
+            flat = collect_flat(concept, prefix=f"Concepto_{idx}", exclude_technical=exclude_technical)
+            row.update(flat)
+        return [row], meta
 
-    for clave, valor in atributos_elemento(raiz).items():
-        resumen[f"CFDI_{clave}"] = valor
+    if not concepts:
+        return [base], meta
 
-    emisores = buscar_elementos(raiz, "Emisor")
-    receptores = buscar_elementos(raiz, "Receptor")
-    timbres = buscar_elementos(raiz, "TimbreFiscalDigital")
-
-    if emisores:
-        for clave, valor in atributos_elemento(emisores[0]).items():
-            resumen[f"Emisor_{clave}"] = valor
-
-    if receptores:
-        for clave, valor in atributos_elemento(receptores[0]).items():
-            resumen[f"Receptor_{clave}"] = valor
-
-    if timbres:
-        for clave, valor in atributos_elemento(timbres[0]).items():
-            resumen[f"Timbre_{clave}"] = valor
-
-    tablas_datos["XML_Resumen"].append(resumen)
-
-    # --------------------------------------------------------
-    # EMISOR, RECEPTOR Y TIMBRE
-    # --------------------------------------------------------
-
-    for numero, emisor in enumerate(emisores, start=1):
-        fila = {
-            "Archivo_XML": nombre_archivo,
-            "Emisor_Numero": numero,
-        }
-        fila.update(atributos_elemento(emisor))
-        tablas_datos["XML_Emisor"].append(fila)
-
-    for numero, receptor in enumerate(receptores, start=1):
-        fila = {
-            "Archivo_XML": nombre_archivo,
-            "Receptor_Numero": numero,
-        }
-        fila.update(atributos_elemento(receptor))
-        tablas_datos["XML_Receptor"].append(fila)
-
-    for numero, timbre in enumerate(timbres, start=1):
-        fila = {
-            "Archivo_XML": nombre_archivo,
-            "Timbre_Numero": numero,
-        }
-        fila.update(atributos_elemento(timbre))
-        tablas_datos["XML_Timbre"].append(fila)
-
-    # --------------------------------------------------------
-    # CONCEPTOS E IMPUESTOS POR CONCEPTO
-    # --------------------------------------------------------
-
-    conceptos = buscar_elementos(raiz, "Concepto")
-
-    for numero_concepto, concepto in enumerate(conceptos, start=1):
-        fila_concepto = {
-            "Archivo_XML": nombre_archivo,
-            "Concepto_Numero": numero_concepto,
-        }
-        fila_concepto.update(atributos_elemento(concepto))
-        tablas_datos["XML_Conceptos"].append(fila_concepto)
-
-        for impuesto in concepto.iter():
-            tipo_impuesto = nombre_local(impuesto.tag)
-            if tipo_impuesto.lower() not in {"traslado", "retencion"}:
-                continue
-
-            fila_impuesto = {
-                "Archivo_XML": nombre_archivo,
-                "Nivel": "Concepto",
-                "Concepto_Numero": numero_concepto,
-                "Tipo_Movimiento": tipo_impuesto,
-            }
-            fila_impuesto.update(atributos_elemento(impuesto))
-            tablas_datos["XML_Impuestos"].append(fila_impuesto)
-
-    # --------------------------------------------------------
-    # IMPUESTOS GLOBALES DEL COMPROBANTE
-    # --------------------------------------------------------
-
-    impuestos_globales = buscar_hijo_directo(raiz, "Impuestos")
-    if impuestos_globales is not None:
-        for impuesto in impuestos_globales.iter():
-            tipo_impuesto = nombre_local(impuesto.tag)
-            if tipo_impuesto.lower() not in {"traslado", "retencion"}:
-                continue
-
-            fila_impuesto = {
-                "Archivo_XML": nombre_archivo,
-                "Nivel": "Comprobante",
-                "Concepto_Numero": "",
-                "Tipo_Movimiento": tipo_impuesto,
-            }
-            fila_impuesto.update(atributos_elemento(impuesto))
-            tablas_datos["XML_Impuestos"].append(fila_impuesto)
-
-    # --------------------------------------------------------
-    # CFDI RELACIONADOS
-    # --------------------------------------------------------
-
-    for numero, relacionado in enumerate(
-        buscar_elementos(raiz, "CfdiRelacionado"),
-        start=1,
-    ):
-        fila = {
-            "Archivo_XML": nombre_archivo,
-            "Relacionado_Numero": numero,
-        }
-        fila.update(atributos_elemento(relacionado))
-        tablas_datos["XML_Relacionados"].append(fila)
-
-    # --------------------------------------------------------
-    # COMPLEMENTOS
-    # --------------------------------------------------------
-
-    numero_complemento = 0
-    for complemento in buscar_elementos(raiz, "Complemento"):
-        for hijo in list(complemento):
-            numero_complemento += 1
-            fila = {
-                "Archivo_XML": nombre_archivo,
-                "Complemento_Numero": numero_complemento,
-                "Tipo_Complemento": nombre_local(hijo.tag),
-            }
-            fila.update(atributos_elemento(hijo))
-            tablas_datos["XML_Complementos"].append(fila)
-
-    # --------------------------------------------------------
-    # COMPLEMENTO DE PAGOS
-    # --------------------------------------------------------
-
-    pagos = buscar_elementos(raiz, "Pago")
-    for numero_pago, pago in enumerate(pagos, start=1):
-        fila_pago = {
-            "Archivo_XML": nombre_archivo,
-            "Pago_Numero": numero_pago,
-        }
-        fila_pago.update(atributos_elemento(pago))
-        tablas_datos["XML_Pagos"].append(fila_pago)
-
-        numero_documento = 0
-        for documento in pago.iter():
-            if nombre_local(documento.tag).lower() != "doctorelacionado":
-                continue
-
-            numero_documento += 1
-            fila_documento = {
-                "Archivo_XML": nombre_archivo,
-                "Pago_Numero": numero_pago,
-                "Documento_Numero": numero_documento,
-            }
-            fila_documento.update(atributos_elemento(documento))
-            tablas_datos["XML_DoctosPago"].append(fila_documento)
-
-    for numero, totales in enumerate(
-        buscar_elementos(raiz, "Totales"),
-        start=1,
-    ):
-        fila = {
-            "Archivo_XML": nombre_archivo,
-            "Totales_Numero": numero,
-        }
-        fila.update(atributos_elemento(totales))
-        tablas_datos["XML_TotalesPago"].append(fila)
-
-    # --------------------------------------------------------
-    # DETALLE COMPLETO DEL XML
-    # --------------------------------------------------------
-
-    detalle = construir_detalle_xml(raiz, nombre_archivo)
-
-    # --------------------------------------------------------
-    # CONSTRUIR SALIDA
-    # --------------------------------------------------------
-
-    tablas: List[Dict] = []
-
-    for nombre_tabla in ORDEN_TABLAS_XML:
-        if nombre_tabla == "XML_Detalle":
-            dataframe = detalle
-        else:
-            filas = tablas_datos.get(nombre_tabla, [])
-            if not filas:
-                continue
-            dataframe = pd.DataFrame(filas).fillna("")
-
-        if dataframe.empty:
-            continue
-
-        tablas.append(
-            {
-                "nombre": nombre_tabla,
-                "archivo_origen": nombre_archivo,
-                "dataframe": dataframe.astype(str),
-                "codificacion": codificacion,
-                "separador": None,
-                "formato": "XML",
-            }
-        )
-
-    return tablas
+    rows = []
+    for idx, concept in enumerate(concepts, start=1):
+        row = dict(base)
+        row["Concepto_Indice"] = idx
+        row.update(collect_flat(concept, exclude_technical=exclude_technical))
+        rows.append(row)
+    return rows, meta
 
 
-def consolidar_tablas_xml(tablas_xml: List[Dict]) -> List[Dict]:
-    """Consolida tablas del mismo tipo cuando un ZIP contiene varios XML."""
-    acumuladas: Dict[str, List[pd.DataFrame]] = defaultdict(list)
-    archivos_por_tabla: Dict[str, List[str]] = defaultdict(list)
-    codificaciones_por_tabla: Dict[str, Set[str]] = defaultdict(set)
-
-    for tabla in tablas_xml:
-        nombre = tabla["nombre"]
-        acumuladas[nombre].append(tabla["dataframe"])
-        archivos_por_tabla[nombre].append(tabla["archivo_origen"])
-        codificaciones_por_tabla[nombre].add(tabla["codificacion"])
-
-    resultado: List[Dict] = []
-
-    nombres_ordenados = [
-        nombre
-        for nombre in ORDEN_TABLAS_XML
-        if nombre in acumuladas
-    ]
-
-    for nombre in nombres_ordenados:
-        dataframe = pd.concat(
-            acumuladas[nombre],
-            ignore_index=True,
-            sort=False,
-        ).fillna("")
-
-        resultado.append(
-            {
-                "nombre": nombre,
-                "archivo_origen": (
-                    f"{len(set(archivos_por_tabla[nombre]))} XML dentro del ZIP"
-                ),
-                "dataframe": dataframe.astype(str),
-                "codificacion": ", ".join(
-                    sorted(codificaciones_por_tabla[nombre])
-                ),
-                "separador": None,
-                "formato": "XML",
-            }
-        )
-
-    return resultado
+def iter_xmls(uploaded_files) -> Iterable[tuple[str, bytes]]:
+    for uploaded in uploaded_files:
+        name = uploaded.name
+        raw = uploaded.getvalue()
+        suffix = Path(name).suffix.lower()
+        if suffix == ".xml":
+            yield name, raw
+        elif suffix == ".zip":
+            try:
+                with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
+                    for member in zf.infolist():
+                        if not member.is_dir() and Path(member.filename).suffix.lower() == ".xml":
+                            yield f"{Path(name).stem}/{member.filename}", zf.read(member)
+            except zipfile.BadZipFile as exc:
+                raise ValueError(f"{name}: ZIP inválido") from exc
 
 
-# ============================================================
-# EXTRACCIÓN DE ARCHIVOS
-# ============================================================
-
-
-def extraer_tablas(
-    archivo_subido,
-    separador_manual: Optional[str] = None,
-) -> List[Dict]:
-    """Procesa un ZIP, TXT, CSV o XML y devuelve las tablas encontradas."""
-    nombre_archivo = archivo_subido.name
-    contenido = archivo_subido.getvalue()
-    extension = Path(nombre_archivo).suffix.lower()
-    tablas: List[Dict] = []
-
-    if extension == ".zip":
+def analyze(uploaded_files) -> dict[str, Any]:
+    total = valid = concepts = 0
+    types: Counter[str] = Counter()
+    errors = []
+    for name, raw in iter_xmls(uploaded_files):
+        total += 1
         try:
-            with zipfile.ZipFile(io.BytesIO(contenido), "r") as archivo_zip:
-                archivos_internos = [
-                    nombre
-                    for nombre in archivo_zip.namelist()
-                    if not nombre.endswith("/")
-                    and Path(nombre).suffix.lower() in FORMATOS_COMPATIBLES
-                ]
+            root = ET.fromstring(raw)
+            valid += 1
+            types[identify_xml_type(root)] += 1
+            concepts += len(find_elements(root, "Concepto"))
+        except Exception as exc:
+            errors.append({"Archivo": name, "Error": str(exc)})
+    return {"total": total, "valid": valid, "concepts": concepts, "types": dict(types), "errors": errors}
 
-                if not archivos_internos:
-                    raise ValueError(
-                        "El ZIP no contiene archivos TXT, CSV o XML compatibles."
-                    )
 
-                tablas_xml: List[Dict] = []
-
-                for archivo_interno in archivos_internos:
-                    contenido_interno = archivo_zip.read(archivo_interno)
-                    extension_interna = Path(archivo_interno).suffix.lower()
-
-                    if extension_interna == ".xml":
-                        tablas_xml.extend(
-                            parsear_xml(contenido_interno, archivo_interno)
-                        )
-                    else:
-                        tablas.append(
-                            leer_tabla(
-                                contenido_interno,
-                                archivo_interno,
-                                separador_manual,
-                            )
-                        )
-
-                if tablas_xml:
-                    tablas.extend(consolidar_tablas_xml(tablas_xml))
-
-        except zipfile.BadZipFile as error:
-            raise ValueError(
-                "El archivo ZIP está dañado o no es un ZIP válido."
-            ) from error
-
-    elif extension in {".txt", ".csv"}:
-        tablas.append(
-            leer_tabla(
-                contenido,
-                nombre_archivo,
-                separador_manual,
-            )
-        )
-
-    elif extension == ".xml":
-        tablas.extend(parsear_xml(contenido, nombre_archivo))
-
+def make_preview(uploaded_files, representation, exclude_technical, sample_mode):
+    xmls = list(iter_xmls(uploaded_files))
+    if sample_mode == "Aleatorios" and len(xmls) > PREVIEW_XML_LIMIT:
+        sample = pd.Series(xmls).sample(PREVIEW_XML_LIMIT, random_state=42).tolist()
     else:
-        raise ValueError(
-            "Formato no compatible. Selecciona archivos ZIP, TXT, CSV o XML."
-        )
+        sample = xmls[:PREVIEW_XML_LIMIT]
 
-    if not tablas:
-        raise ValueError(
-            "No se encontraron datos que pudieran convertirse a Excel."
-        )
-
-    return tablas
-
-
-# ============================================================
-# CREACIÓN DEL EXCEL
-# ============================================================
+    rows, errors = [], []
+    for name, raw in sample:
+        try:
+            parsed, _ = parse_xml(raw, name, representation, exclude_technical)
+            rows.extend(parsed)
+        except Exception as exc:
+            errors.append({"Archivo": name, "Error": str(exc)})
+    return pd.DataFrame(rows), errors, len(sample)
 
 
-def ajustar_hoja_excel(worksheet, dataframe: pd.DataFrame) -> None:
-    """Aplica formato básico y conserva los valores como texto."""
-    worksheet.freeze_panes = "A2"
-    worksheet.auto_filter.ref = worksheet.dimensions
-    worksheet.sheet_view.showGridLines = False
-
-    relleno_encabezado = PatternFill(
-        fill_type="solid",
-        fgColor="1F4E78",
-    )
-    fuente_encabezado = Font(color="FFFFFF", bold=True)
-
-    for celda in worksheet[1]:
-        celda.fill = relleno_encabezado
-        celda.font = fuente_encabezado
-        celda.alignment = Alignment(
-            horizontal="center",
-            vertical="center",
-        )
-
-    worksheet.row_dimensions[1].height = 24
-
-    for indice_columna, columna in enumerate(dataframe.columns, start=1):
-        valores = dataframe[columna].astype(str)
-        largo_maximo = max(
-            len(str(columna)),
-            valores.map(len).max() if not valores.empty else 0,
-        )
-
-        ancho = min(max(largo_maximo + 2, 12), 50)
-        letra_columna = get_column_letter(indice_columna)
-        worksheet.column_dimensions[letra_columna].width = ancho
-
-        for fila in range(2, len(dataframe) + 2):
-            worksheet.cell(
-                row=fila,
-                column=indice_columna,
-            ).number_format = "@"
+def sanitize_sheet(name: str) -> str:
+    return (re.sub(r"[\[\]\*\?/\\:]", "_", name)[:31] or "Hoja").strip()
 
 
-def dividir_dataframe(dataframe: pd.DataFrame) -> List[pd.DataFrame]:
-    """Divide tablas muy grandes para respetar el límite de filas de Excel."""
-    if len(dataframe) <= MAX_FILAS_POR_HOJA:
-        return [dataframe]
-
-    return [
-        dataframe.iloc[inicio:inicio + MAX_FILAS_POR_HOJA].copy()
-        for inicio in range(0, len(dataframe), MAX_FILAS_POR_HOJA)
-    ]
-
-
-def crear_excel(tablas: List[Dict]) -> bytes:
-    """Crea un XLSX en memoria con una o varias hojas por tabla."""
-    buffer_salida = io.BytesIO()
-    nombres_usados: Set[str] = set()
-
-    with pd.ExcelWriter(buffer_salida, engine="openpyxl") as writer:
-        for tabla in tablas:
-            dataframe = tabla["dataframe"].fillna("").astype(str)
-            fragmentos = dividir_dataframe(dataframe)
-
-            for numero_fragmento, fragmento in enumerate(fragmentos, start=1):
-                nombre_base = tabla["nombre"]
-                if len(fragmentos) > 1:
-                    nombre_base = f"{nombre_base}_{numero_fragmento}"
-
-                nombre_hoja = limpiar_nombre_hoja(
-                    nombre_base,
-                    nombres_usados,
-                )
-
-                fragmento.to_excel(
-                    writer,
-                    sheet_name=nombre_hoja,
-                    index=False,
-                )
-
-                ajustar_hoja_excel(
-                    writer.sheets[nombre_hoja],
-                    fragmento,
-                )
-
-    buffer_salida.seek(0)
-    return buffer_salida.getvalue()
+def format_sheet(ws, headers: list[str]):
+    fill = PatternFill("solid", fgColor="166534")
+    font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = fill
+        cell.font = font
+        cell.alignment = Alignment(horizontal="center")
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+    for i, header in enumerate(headers, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = min(max(len(str(header)) + 2, 12), 40)
 
 
-def nombre_salida(nombre_entrada: str) -> str:
-    """Genera el nombre del Excel resultante."""
-    return f"{Path(nombre_entrada).stem}_convertido.xlsx"
+def rows_to_excel(rows: list[dict[str, Any]], sheet_name="CFDI_Consolidado", errors=None) -> bytes:
+    columns, seen = [], set()
+    for row in rows:
+        for col in row:
+            if col not in seen:
+                seen.add(col)
+                columns.append(col)
 
+    wb = Workbook()
+    wb.remove(wb.active)
 
-def crear_zip_resultados(resultados: List[Dict]) -> bytes:
-    """Agrupa todos los Excel generados en un ZIP."""
-    buffer_zip = io.BytesIO()
-    nombres_usados: Set[str] = set()
-
-    with zipfile.ZipFile(
-        buffer_zip,
-        mode="w",
-        compression=zipfile.ZIP_DEFLATED,
-    ) as archivo_zip:
-        for resultado in resultados:
-            nombre = resultado["nombre_salida"]
-            nombre_base = Path(nombre).stem
-            extension = Path(nombre).suffix
-            nombre_unico = nombre
-            contador = 1
-
-            while nombre_unico.lower() in nombres_usados:
-                nombre_unico = f"{nombre_base}_{contador}{extension}"
-                contador += 1
-
-            nombres_usados.add(nombre_unico.lower())
-            archivo_zip.writestr(
-                nombre_unico,
-                resultado["excel_bytes"],
-            )
-
-    buffer_zip.seek(0)
-    return buffer_zip.getvalue()
-
-
-def mostrar_separador(separador: Optional[str]) -> str:
-    """Convierte el separador a una etiqueta legible."""
-    if separador is None:
-        return "No aplica"
-    if separador == "\t":
-        return "TAB"
-    return separador
-
-
-def texto_metadatos_tabla(tabla: Dict, dataframe: pd.DataFrame) -> str:
-    """Crea la descripción mostrada arriba de cada vista previa."""
-    partes = [
-        f"**Origen:** {tabla['archivo_origen']}",
-        f"**Formato:** `{tabla['formato']}`",
-        f"**Registros:** {len(dataframe):,}",
-        f"**Columnas:** {len(dataframe.columns)}",
-    ]
-
-    if tabla["formato"] == "XML":
-        partes.append(f"**Codificación XML:** `{tabla['codificacion']}`")
+    if not rows:
+        ws = wb.create_sheet("Sin_datos")
+        ws.append(["Mensaje"])
+        ws.append(["No se generaron filas"])
     else:
-        partes.append(f"**Codificación:** `{tabla['codificacion']}`")
-        partes.append(
-            f"**Separador:** `{mostrar_separador(tabla['separador'])}`"
-        )
+        ws = None
+        row_count = 0
+        sheet_idx = 1
+        for row in rows:
+            if ws is None or row_count >= EXCEL_MAX_ROWS - 1:
+                name = sheet_name if sheet_idx == 1 else f"{sheet_name}_{sheet_idx}"
+                ws = wb.create_sheet(sanitize_sheet(name))
+                ws.append(columns)
+                format_sheet(ws, columns)
+                row_count = 0
+                sheet_idx += 1
+            ws.append([row.get(col, "") for col in columns])
+            row_count += 1
 
-    return "  |  ".join(partes)
+    if errors:
+        ws = wb.create_sheet("Errores")
+        headers = ["Archivo", "Error"]
+        ws.append(headers)
+        for err in errors:
+            ws.append([err.get("Archivo", ""), err.get("Error", "")])
+        format_sheet(ws, headers)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
 
 
-# ============================================================
-# BARRA LATERAL
-# ============================================================
+def process_consolidated(uploaded_files, representation, exclude_technical, progress, status):
+    xmls = list(iter_xmls(uploaded_files))
+    rows, errors = [], []
+    for idx, (name, raw) in enumerate(xmls, start=1):
+        try:
+            parsed, _ = parse_xml(raw, name, representation, exclude_technical)
+            rows.extend(parsed)
+        except Exception as exc:
+            errors.append({"Archivo": name, "Error": str(exc)})
+        progress.progress(idx / len(xmls))
+        status.caption(f"Procesando {idx:,} de {len(xmls):,}: {name}")
+    return rows, errors
+
+
+def process_individual(uploaded_files, representation, exclude_technical, progress, status):
+    xmls = list(iter_xmls(uploaded_files))
+    out = io.BytesIO()
+    errors = []
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for idx, (name, raw) in enumerate(xmls, start=1):
+            try:
+                rows, _ = parse_xml(raw, name, representation, exclude_technical)
+                zf.writestr(f"{Path(name).stem}_convertido.xlsx", rows_to_excel(rows, "CFDI"))
+            except Exception as exc:
+                errors.append({"Archivo": name, "Error": str(exc)})
+            progress.progress(idx / len(xmls))
+            status.caption(f"Procesando {idx:,} de {len(xmls):,}: {name}")
+        if errors:
+            zf.writestr("reporte_errores.csv", pd.DataFrame(errors).to_csv(index=False).encode("utf-8-sig"))
+    out.seek(0)
+    return out.getvalue(), errors
+
+
+for key, value in {
+    "download_data": None,
+    "download_name": None,
+    "download_mime": None,
+    "summary": None,
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 with st.sidebar:
     st.header("⚙️ Configuración")
-
-    modo_separador = st.radio(
-        "Separador de columnas para TXT/CSV",
-        options=[
-            "Detectar automáticamente",
-            "Usar separador personalizado",
-        ],
-        index=0,
-    )
-
-    separador_manual: Optional[str] = None
-
-    if modo_separador == "Usar separador personalizado":
-        separador_manual = st.text_input(
-            "Separador",
-            value="~",
-            max_chars=3,
-            help="Para estos archivos del SAT normalmente se usa ~.",
-        )
-
-        if separador_manual == r"\t":
-            separador_manual = "\t"
-
-        if separador_manual == "":
-            separador_manual = None
-
+    representation_label = st.radio("Estructura de salida", ["Una fila por concepto", "Una fila por comprobante"])
+    representation = "por_concepto" if representation_label == "Una fila por concepto" else "por_comprobante"
+    exclude_technical = st.checkbox("Excluir sellos y certificados largos", value=True)
+    sample_mode = st.radio("Muestra del preview", ["Primeros archivos", "Aleatorios"])
     st.markdown("---")
-    st.caption(
-        "El separador solo se aplica a TXT y CSV. Los XML se detectan y "
-        "procesan automáticamente. Los valores se conservan como texto para "
-        "evitar que Excel modifique UUID, RFC, códigos, números largos o "
-        "ceros iniciales."
-    )
+    st.caption("Las columnas se detectan dinámicamente. No se hardcodean proveedores ni campos concretos.")
 
-
-# ============================================================
-# CARGA DE UNO O VARIOS ARCHIVOS
-# ============================================================
-
-archivos_subidos = st.file_uploader(
-    "Selecciona uno o varios archivos",
-    type=["zip", "txt", "csv", "xml"],
-    accept_multiple_files=True,
-    help=(
-        "Puedes cargar uno o varios ZIP, TXT, CSV o XML. Cada archivo cargado "
-        "se convertirá en un Excel independiente. Si un ZIP contiene varios "
-        "XML, se consolidarán dentro de un solo Excel."
-    ),
-)
-
-if not archivos_subidos:
-    st.info("Carga al menos un archivo para iniciar la conversión.")
+st.markdown("## 1. Carga tus archivos")
+uploaded_files = st.file_uploader("Selecciona XML o ZIP", type=["xml", "zip"], accept_multiple_files=True)
+if not uploaded_files:
+    st.info("Carga al menos un XML o ZIP para comenzar.")
     st.stop()
 
+try:
+    analysis = analyze(uploaded_files)
+except Exception as exc:
+    st.error(str(exc))
+    st.stop()
 
-# ============================================================
-# PROCESAMIENTO INDEPENDIENTE DE CADA ARCHIVO
-# ============================================================
+if analysis["total"] == 0:
+    st.warning("No se encontraron XML en la carga.")
+    st.stop()
 
-resultados: List[Dict] = []
-errores: List[Dict] = []
+st.markdown("## 2. Análisis automático")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("XML detectados", f"{analysis['total']:,}")
+c2.metric("XML válidos", f"{analysis['valid']:,}")
+c3.metric("Conceptos", f"{analysis['concepts']:,}")
+c4.metric("Estructuras", f"{len(analysis['types']):,}")
+if analysis["types"]:
+    st.dataframe(pd.DataFrame([{"Tipo detectado": k, "Cantidad": v} for k, v in analysis["types"].items()]), use_container_width=True, hide_index=True)
+if analysis["errors"]:
+    with st.expander(f"⚠️ Ver {len(analysis['errors'])} errores"):
+        st.dataframe(pd.DataFrame(analysis["errors"]), use_container_width=True, hide_index=True)
 
-barra_progreso = st.progress(0)
-texto_progreso = st.empty()
+st.markdown("## 3. Configura la salida")
+if analysis["total"] == 1:
+    output_mode = "Consolidado"
+    st.info("Se detectó un solo XML. Se generará un Excel individual; no se muestra la opción de unir archivos.")
+else:
+    output_mode = st.radio("¿Cómo deseas generar el resultado?", ["Consolidar todos en un solo Excel", "Generar un Excel por cada XML"], horizontal=True)
 
-total_archivos = len(archivos_subidos)
+st.markdown("## 4. Vista previa")
+preview_df, preview_errors, sample_count = make_preview(uploaded_files, representation, exclude_technical, sample_mode)
+p1, p2, p3 = st.columns(3)
+p1.metric("XML usados en muestra", sample_count)
+p2.metric("Filas de muestra", len(preview_df))
+p3.metric("Columnas detectadas", len(preview_df.columns))
+if not preview_df.empty:
+    defaults = list(preview_df.columns[: min(12, len(preview_df.columns))])
+    visible = st.multiselect("Columnas visibles en el preview", list(preview_df.columns), default=defaults)
+    st.dataframe(preview_df[visible or defaults].head(PREVIEW_ROW_LIMIT), use_container_width=True, hide_index=True, height=420)
+    st.caption(f"Vista previa de hasta {PREVIEW_ROW_LIMIT} filas. El archivo final incluirá todas las filas y columnas.")
+if preview_errors:
+    with st.expander(f"⚠️ Errores en preview: {len(preview_errors)}"):
+        st.dataframe(pd.DataFrame(preview_errors), use_container_width=True, hide_index=True)
 
-for indice, archivo_subido in enumerate(archivos_subidos, start=1):
-    texto_progreso.write(
-        f"Procesando {indice} de {total_archivos}: **{archivo_subido.name}**"
-    )
-
+st.markdown("## 5. Procesar y descargar")
+button_label = "Convertir XML a Excel" if analysis["total"] == 1 else f"Procesar {analysis['total']:,} CFDI"
+if st.button(button_label, type="primary", use_container_width=True):
+    progress = st.progress(0)
+    status = st.empty()
+    started = time.time()
     try:
-        tablas = extraer_tablas(
-            archivo_subido,
-            separador_manual=separador_manual,
-        )
-        excel_bytes = crear_excel(tablas)
+        if analysis["total"] == 1 or output_mode == "Consolidar todos en un solo Excel":
+            rows, errors = process_consolidated(uploaded_files, representation, exclude_technical, progress, status)
+            st.session_state.download_data = rows_to_excel(rows, "CFDI" if analysis["total"] == 1 else "CFDI_Consolidado", errors)
+            st.session_state.download_name = "CFDI_Consolidado.xlsx" if analysis["total"] > 1 else f"{Path(next(iter_xmls(uploaded_files))[0]).stem}_convertido.xlsx"
+            st.session_state.download_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            st.session_state.summary = {"procesados": analysis["total"], "correctos": analysis["total"] - len(errors), "errores": len(errors), "filas": len(rows), "tiempo": time.time() - started}
+        else:
+            data, errors = process_individual(uploaded_files, representation, exclude_technical, progress, status)
+            st.session_state.download_data = data
+            st.session_state.download_name = "CFDI_Individuales.zip"
+            st.session_state.download_mime = "application/zip"
+            st.session_state.summary = {"procesados": analysis["total"], "correctos": analysis["total"] - len(errors), "errores": len(errors), "filas": None, "tiempo": time.time() - started}
+        status.success("Procesamiento completado.")
+    except Exception as exc:
+        st.error(f"No fue posible completar el procesamiento: {exc}")
 
-        formatos_detectados = sorted(
-            {tabla["formato"] for tabla in tablas}
-        )
+if st.session_state.summary:
+    s = st.session_state.summary
+    st.success("Conversión completada correctamente.")
+    r1, r2, r3, r4 = st.columns(4)
+    r1.metric("XML procesados", f"{s['procesados']:,}")
+    r2.metric("Correctos", f"{s['correctos']:,}")
+    r3.metric("Con error", f"{s['errores']:,}")
+    r4.metric("Tiempo", f"{s['tiempo']:.2f} s")
 
-        resultados.append(
-            {
-                "nombre_entrada": archivo_subido.name,
-                "nombre_salida": nombre_salida(archivo_subido.name),
-                "tablas": tablas,
-                "excel_bytes": excel_bytes,
-                "formatos": ", ".join(formatos_detectados),
-                "registros": sum(
-                    len(tabla["dataframe"])
-                    for tabla in tablas
-                ),
-                "columnas": sum(
-                    len(tabla["dataframe"].columns)
-                    for tabla in tablas
-                ),
-            }
-        )
-
-    except Exception as error:
-        errores.append(
-            {
-                "nombre": archivo_subido.name,
-                "error": str(error),
-            }
-        )
-
-    barra_progreso.progress(indice / total_archivos)
-
-texto_progreso.empty()
-barra_progreso.empty()
-
-
-# ============================================================
-# RESUMEN
-# ============================================================
-
-st.subheader("📊 Resumen del procesamiento")
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Archivos cargados", total_archivos)
-col2.metric("Convertidos", len(resultados))
-col3.metric("Con error", len(errores))
-col4.metric(
-    "Registros totales",
-    f"{sum(resultado['registros'] for resultado in resultados):,}",
-)
-
-if resultados:
-    st.success(
-        f"Se convirtieron correctamente {len(resultados)} "
-        f"de {total_archivos} archivo(s)."
-    )
-
-if errores:
-    st.warning(
-        "Algunos archivos no pudieron convertirse. Los demás resultados "
-        "siguen disponibles para descargar."
-    )
-
-    with st.expander("Ver archivos con error", expanded=True):
-        for error in errores:
-            st.error(f"**{error['nombre']}**\n\n{error['error']}")
-
-
-# ============================================================
-# RESULTADOS Y DESCARGAS INDIVIDUALES
-# ============================================================
-
-if resultados:
-    st.subheader("⬇️ Descargar resultados")
-
-    for numero, resultado in enumerate(resultados, start=1):
-        with st.container(border=True):
-            st.markdown(
-                f'<div class="archivo-titulo">{numero}. '
-                f'{resultado["nombre_entrada"]}</div>',
-                unsafe_allow_html=True,
-            )
-
-            resumen1, resumen2, resumen3, resumen4 = st.columns(4)
-            resumen1.metric("Formato", resultado["formatos"])
-            resumen2.metric("Registros", f"{resultado['registros']:,}")
-            resumen3.metric("Columnas", resultado["columnas"])
-            resumen4.metric("Hojas de Excel", len(resultado["tablas"]))
-
-            with st.expander("🔎 Ver vista previa"):
-                if len(resultado["tablas"]) == 1:
-                    tabla = resultado["tablas"][0]
-                    dataframe = tabla["dataframe"]
-
-                    st.write(texto_metadatos_tabla(tabla, dataframe))
-                    st.dataframe(
-                        dataframe.head(100),
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-
-                else:
-                    nombres_pestanas: List[str] = []
-                    nombres_vistos: Dict[str, int] = defaultdict(int)
-
-                    for tabla in resultado["tablas"]:
-                        nombre_pestana = tabla["nombre"][:36]
-                        nombres_vistos[nombre_pestana] += 1
-
-                        if nombres_vistos[nombre_pestana] > 1:
-                            nombre_pestana = (
-                                f"{nombre_pestana[:32]} "
-                                f"({nombres_vistos[nombre_pestana]})"
-                            )
-
-                        nombres_pestanas.append(nombre_pestana)
-
-                    pestanas = st.tabs(nombres_pestanas)
-
-                    for pestana, tabla in zip(
-                        pestanas,
-                        resultado["tablas"],
-                    ):
-                        with pestana:
-                            dataframe = tabla["dataframe"]
-                            st.write(texto_metadatos_tabla(tabla, dataframe))
-                            st.dataframe(
-                                dataframe.head(100),
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-
-                if resultado["registros"] > 100:
-                    st.caption(
-                        "La vista previa muestra como máximo las primeras "
-                        "100 filas de cada hoja. El Excel incluye todos los datos."
-                    )
-
-            st.download_button(
-                label=f"Descargar {resultado['nombre_salida']}",
-                data=resultado["excel_bytes"],
-                file_name=resultado["nombre_salida"],
-                mime=(
-                    "application/vnd.openxmlformats-officedocument."
-                    "spreadsheetml.sheet"
-                ),
-                key=f"descarga_individual_{numero}",
-                use_container_width=True,
-            )
-
-            st.markdown(
-                '<div class="texto-descarga">⬆️</div>',
-                unsafe_allow_html=True,
-            )
-
-
-# ============================================================
-# DESCARGA CONJUNTA
-# ============================================================
-
-if len(resultados) > 1:
-    st.subheader("📦 Descargar todos")
-    zip_resultados = crear_zip_resultados(resultados)
-
-    st.download_button(
-        label="Descargar todos los Excel en un solo ZIP",
-        data=zip_resultados,
-        file_name="archivos_convertidos_excel.zip",
-        mime="application/zip",
-        key="descarga_todos_zip",
-        use_container_width=True,
-    )
-
-    st.markdown(
-        '<div class="texto-descarga">'
-        '⬆️ Aquí puede descargar todos los archivos de una sola vez'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# FIRMA
-# ============================================================
-
-st.markdown(
-    '<div class="firma-app">Hecho por tu novio el ingeniero xd 😎</div>',
-    unsafe_allow_html=True,
-)
+if st.session_state.download_data:
+    st.download_button(f"⬇️ Descargar {st.session_state.download_name}", st.session_state.download_data, st.session_state.download_name, st.session_state.download_mime, use_container_width=True)
+    st.markdown('<div class="signature">Aquí debe descargarlo ella 👆<br>Hecho por tu novio el ingeniero xd 😎</div>', unsafe_allow_html=True)

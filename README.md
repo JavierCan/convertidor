@@ -1,19 +1,34 @@
-# Convertidor SAT a Excel
+# CFDI a Excel — Streamlit App
 
-Miniapp de Streamlit que permite:
+Proyecto listo para desplegar en Streamlit Community Cloud.
 
-- Cargar uno o varios archivos ZIP, TXT, CSV o XML.
-- Detectar automáticamente separadores como `~`, `|`, `;`, tabulador o coma.
-- Convertir XML CFDI a hojas de Excel estructuradas.
-- Crear hojas para resumen, emisor, receptor, conceptos, impuestos, CFDI relacionados, timbre, complementos, pagos y detalle XML completo.
-- Conservar toda la información de un XML genérico en la hoja `XML_Detalle`.
-- Consolidar varios XML incluidos dentro de un ZIP en un solo Excel.
-- Crear un Excel independiente por cada archivo cargado.
-- Crear una hoja por cada TXT/CSV incluido dentro de un ZIP.
-- Descargar cada Excel individualmente.
-- Descargar todos los Excel dentro de un solo ZIP.
-- Mantener UUID, RFC, códigos, números largos y ceros iniciales como texto.
-- Mostrar una vista previa antes de descargar.
+## Funcionalidades
+
+- Carga uno o múltiples XML.
+- Carga uno o múltiples ZIP con XML.
+- Detecta la estructura XML/CFDI automáticamente.
+- Preview por concepto o por comprobante.
+- Con un solo XML no muestra la opción de consolidar.
+- Con varios XML permite consolidar o generar archivos individuales dentro de un ZIP.
+- Columnas dinámicas, sin hardcodear proveedor, UUID ni campos concretos.
+- Exclusión opcional de sellos y certificados largos.
+- Reporte de errores sin detener el resto del proceso.
+- Frontend HTML/CSS/JS integrado dentro de Streamlit.
+
+## Estructura
+
+```text
+cfdi_streamlit_app/
+├── app.py
+├── requirements.txt
+├── README.md
+├── assets/
+│   ├── index.html
+│   ├── styles.css
+│   └── script.js
+└── examples/
+    └── ejemplo.xml
+```
 
 ## Ejecutar localmente
 
@@ -22,10 +37,12 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Publicar en Streamlit Community Cloud
+## Deploy
 
 1. Crea un repositorio en GitHub.
-2. Sube `app.py`, `requirements.txt` y `README.md`.
-3. Crea una aplicación en Streamlit Community Cloud.
-4. Selecciona `app.py` como archivo principal.
+2. Sube todo el contenido de esta carpeta.
+3. En Streamlit Community Cloud selecciona el repositorio.
+4. Usa `app.py` como Main file path.
 5. Pulsa **Deploy**.
+
+Para miles de CFDI, es preferible cargarlos dentro de uno o varios ZIP.

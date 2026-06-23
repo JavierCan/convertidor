@@ -1,0 +1,1 @@
+document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".file-card").forEach((card,index)=>{card.animate([{transform:"translateY(0px)"},{transform:"translateY(-6px)"},{transform:"translateY(0px)"}],{duration:2400+index*300,iterations:Infinity,easing:"ease-in-out"})})});
