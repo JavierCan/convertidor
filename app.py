@@ -1140,7 +1140,7 @@ if resultados:
             )
 
             st.markdown(
-                '<div class="texto-descarga">⬆️ Aquí debe descargarlo ella</div>',
+                '<div class="texto-descarga">⬆️</div>',
                 unsafe_allow_html=True,
             )
 
