@@ -315,97 +315,500 @@ for key, value in {
     if key not in st.session_state:
         st.session_state[key] = value
 
+
 with st.sidebar:
-    st.header("⚙️ Configuración")
-    representation_label = st.radio("Estructura de salida", ["Una fila por concepto", "Una fila por comprobante"])
-    representation = "por_concepto" if representation_label == "Una fila por concepto" else "por_comprobante"
-    exclude_technical = st.checkbox("Excluir sellos y certificados largos", value=True)
-    sample_mode = st.radio("Muestra del preview", ["Primeros archivos", "Aleatorios"])
+    st.header("⚙️ Opciones avanzadas")
+
+    exclude_technical = st.checkbox(
+        "Excluir sellos y certificados largos",
+        value=True,
+        help=(
+            "Excluye Sello, Certificado, SelloCFD y SelloSAT para reducir "
+            "el tamaño del archivo. El resto de los datos se conserva."
+        ),
+    )
+
+    sample_mode = st.radio(
+        "Muestra del preview",
+        ["Primeros archivos", "Aleatorios"],
+        index=0,
+        help="Con cargas grandes, el preview utiliza hasta 20 XML.",
+    )
+
     st.markdown("---")
-    st.caption("Las columnas se detectan dinámicamente. No se hardcodean proveedores ni campos concretos.")
+    st.caption(
+        "Las columnas se generan dinámicamente desde cada XML. "
+        "No se hardcodean proveedores, UUID ni campos concretos."
+    )
+
+
+# ============================================================
+# 1. CARGA
+# ============================================================
 
 st.markdown("## 1. Carga tus archivos")
-uploaded_files = st.file_uploader("Selecciona XML o ZIP", type=["xml", "zip"], accept_multiple_files=True)
+st.caption(
+    "Puedes cargar un XML, varios XML, un ZIP con XML o varios ZIP."
+)
+
+uploaded_files = st.file_uploader(
+    "Arrastra o selecciona XML y ZIP",
+    type=["xml", "zip"],
+    accept_multiple_files=True,
+    help="Admite uno o múltiples archivos XML y ZIP.",
+)
+
 if not uploaded_files:
-    st.info("Carga al menos un XML o ZIP para comenzar.")
+    st.info(
+        "Carga al menos un XML o ZIP para mostrar las opciones de estructura, "
+        "el modo de salida y los previews."
+    )
     st.stop()
 
 try:
     analysis = analyze(uploaded_files)
 except Exception as exc:
-    st.error(str(exc))
+    st.error(f"No se pudo analizar la carga: {exc}")
     st.stop()
 
 if analysis["total"] == 0:
-    st.warning("No se encontraron XML en la carga.")
+    st.warning("No se encontraron archivos XML dentro de la carga.")
     st.stop()
 
+
+input_signature = tuple(
+    sorted(
+        (
+            uploaded.name,
+            int(getattr(uploaded, "size", len(uploaded.getvalue()))),
+        )
+        for uploaded in uploaded_files
+    )
+)
+
+if st.session_state.get("input_signature") != input_signature:
+    st.session_state.input_signature = input_signature
+    st.session_state.download_data = None
+    st.session_state.download_name = None
+    st.session_state.download_mime = None
+    st.session_state.summary = None
+
+
+# ============================================================
+# 2. ANÁLISIS
+# ============================================================
+
 st.markdown("## 2. Análisis automático")
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("XML detectados", f"{analysis['total']:,}")
 c2.metric("XML válidos", f"{analysis['valid']:,}")
-c3.metric("Conceptos", f"{analysis['concepts']:,}")
-c4.metric("Estructuras", f"{len(analysis['types']):,}")
+c3.metric("Conceptos detectados", f"{analysis['concepts']:,}")
+c4.metric("Tipos de estructura", f"{len(analysis['types']):,}")
+
 if analysis["types"]:
-    st.dataframe(pd.DataFrame([{"Tipo detectado": k, "Cantidad": v} for k, v in analysis["types"].items()]), use_container_width=True, hide_index=True)
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {"Tipo detectado": name, "Cantidad": quantity}
+                for name, quantity in analysis["types"].items()
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+
 if analysis["errors"]:
-    with st.expander(f"⚠️ Ver {len(analysis['errors'])} errores"):
-        st.dataframe(pd.DataFrame(analysis["errors"]), use_container_width=True, hide_index=True)
+    with st.expander(
+        f"⚠️ Ver {len(analysis['errors']):,} XML con problemas"
+    ):
+        st.dataframe(
+            pd.DataFrame(analysis["errors"]),
+            use_container_width=True,
+            hide_index=True,
+        )
 
-st.markdown("## 3. Configura la salida")
+
+# ============================================================
+# 3. ESTRUCTURA
+# ============================================================
+
+st.markdown("## 3. Elige cómo se organizarán las filas")
+
+representation_label = st.radio(
+    "Estructura del Excel",
+    [
+        "Una fila por concepto",
+        "Una fila por comprobante",
+    ],
+    index=0,
+    horizontal=True,
+    key="representation_main",
+)
+
+representation = (
+    "por_concepto"
+    if representation_label == "Una fila por concepto"
+    else "por_comprobante"
+)
+
+description_col1, description_col2 = st.columns(2)
+
+with description_col1:
+    with st.container(border=True):
+        st.markdown("### 🧾 Una fila por concepto")
+        st.write(
+            "Cada producto o servicio del CFDI genera una fila. "
+            "Los datos generales se repiten para cada concepto."
+        )
+        st.caption(
+            "Recomendado para Power BI, compras, productos, servicios "
+            "e impuestos detallados."
+        )
+
+with description_col2:
+    with st.container(border=True):
+        st.markdown("### 📄 Una fila por comprobante")
+        st.write(
+            "Cada XML genera una sola fila. Los conceptos se colocan "
+            "en grupos de columnas numeradas."
+        )
+        st.caption(
+            "Recomendado para revisar facturas, folios, emisores, "
+            "receptores y totales."
+        )
+
+st.success(
+    f"Se exportará como **{representation_label.lower()}**."
+)
+
+
+# ============================================================
+# 4. SALIDA: UNO O VARIOS XML
+# ============================================================
+
+st.markdown("## 4. Elige el tipo de descarga")
+
 if analysis["total"] == 1:
-    output_mode = "Consolidado"
-    st.info("Se detectó un solo XML. Se generará un Excel individual; no se muestra la opción de unir archivos.")
+    output_mode = "individual"
+
+    st.info(
+        "Se detectó **un solo XML**. La app generará directamente un Excel "
+        "individual y no mostrará la opción de unir archivos."
+    )
+
+    with st.container(border=True):
+        st.markdown("### Resultado esperado")
+        st.code(
+            "nombre_del_xml_convertido.xlsx\n└── Hoja: CFDI",
+            language="text",
+        )
+
 else:
-    output_mode = st.radio("¿Cómo deseas generar el resultado?", ["Consolidar todos en un solo Excel", "Generar un Excel por cada XML"], horizontal=True)
+    output_mode_label = st.radio(
+        "Se detectaron varios XML. ¿Cómo deseas descargarlos?",
+        [
+            "Unir todos en un solo Excel",
+            "Dejar un Excel por cada XML",
+        ],
+        index=0,
+        horizontal=True,
+        key="output_mode_main",
+    )
 
-st.markdown("## 4. Vista previa")
-preview_df, preview_errors, sample_count = make_preview(uploaded_files, representation, exclude_technical, sample_mode)
-p1, p2, p3 = st.columns(3)
-p1.metric("XML usados en muestra", sample_count)
-p2.metric("Filas de muestra", len(preview_df))
-p3.metric("Columnas detectadas", len(preview_df.columns))
-if not preview_df.empty:
-    defaults = list(preview_df.columns[: min(12, len(preview_df.columns))])
-    visible = st.multiselect("Columnas visibles en el preview", list(preview_df.columns), default=defaults)
-    st.dataframe(preview_df[visible or defaults].head(PREVIEW_ROW_LIMIT), use_container_width=True, hide_index=True, height=420)
-    st.caption(f"Vista previa de hasta {PREVIEW_ROW_LIMIT} filas. El archivo final incluirá todas las filas y columnas.")
-if preview_errors:
-    with st.expander(f"⚠️ Errores en preview: {len(preview_errors)}"):
-        st.dataframe(pd.DataFrame(preview_errors), use_container_width=True, hide_index=True)
+    if output_mode_label == "Unir todos en un solo Excel":
+        output_mode = "consolidated"
+        st.success(
+            "Todos los XML se integrarán en una sola tabla. La columna "
+            "`Archivo_XML` permitirá identificar el documento de origen."
+        )
+        st.code(
+            "CFDI_Consolidado.xlsx\n└── Hoja: CFDI_Consolidado",
+            language="text",
+        )
+    else:
+        output_mode = "individual"
+        st.info(
+            "Se generará un ZIP con un Excel independiente por cada XML."
+        )
+        st.code(
+            "CFDI_Individuales.zip\n"
+            "├── factura_001_convertido.xlsx\n"
+            "├── factura_002_convertido.xlsx\n"
+            "└── reporte_errores.csv (si aplica)",
+            language="text",
+        )
 
-st.markdown("## 5. Procesar y descargar")
-button_label = "Convertir XML a Excel" if analysis["total"] == 1 else f"Procesar {analysis['total']:,} CFDI"
-if st.button(button_label, type="primary", use_container_width=True):
+
+# ============================================================
+# 5. PREVIEW COMPARATIVO
+# ============================================================
+
+st.markdown("## 5. Compara las vistas previas")
+st.caption(
+    "Puedes revisar ambas estructuras antes de procesar todos los archivos. "
+    "La pestaña marcada corresponde a la opción elegida para exportar."
+)
+
+with st.spinner("Generando previews..."):
+    preview_concept_df, preview_concept_errors, concept_sample_count = make_preview(
+        uploaded_files,
+        "por_concepto",
+        exclude_technical,
+        sample_mode,
+    )
+
+    preview_document_df, preview_document_errors, document_sample_count = make_preview(
+        uploaded_files,
+        "por_comprobante",
+        exclude_technical,
+        sample_mode,
+    )
+
+
+def show_preview(
+    dataframe,
+    sample_count,
+    errors,
+    key_prefix,
+):
+    p1, p2, p3 = st.columns(3)
+    p1.metric("XML usados en muestra", f"{sample_count:,}")
+    p2.metric("Filas generadas", f"{len(dataframe):,}")
+    p3.metric("Columnas detectadas", f"{len(dataframe.columns):,}")
+
+    if dataframe.empty:
+        st.warning("No se generaron filas para esta vista previa.")
+    else:
+        defaults = list(
+            dataframe.columns[: min(14, len(dataframe.columns))]
+        )
+
+        visible = st.multiselect(
+            "Columnas visibles",
+            options=list(dataframe.columns),
+            default=defaults,
+            key=f"{key_prefix}_columns",
+            help=(
+                "Solo cambia la visualización. El Excel conservará "
+                "todas las columnas detectadas."
+            ),
+        )
+
+        st.dataframe(
+            dataframe[visible or defaults].head(PREVIEW_ROW_LIMIT),
+            use_container_width=True,
+            hide_index=True,
+            height=430,
+        )
+
+        st.caption(
+            f"Se muestran hasta {PREVIEW_ROW_LIMIT} filas. "
+            "La exportación incluirá todos los registros."
+        )
+
+    if errors:
+        with st.expander(
+            f"⚠️ Errores de esta muestra: {len(errors):,}"
+        ):
+            st.dataframe(
+                pd.DataFrame(errors),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+
+concept_tab, document_tab = st.tabs(
+    [
+        "🧾 Preview por concepto",
+        "📄 Preview por comprobante",
+    ]
+)
+
+with concept_tab:
+    if representation == "por_concepto":
+        st.success(
+            "✅ Esta es la estructura seleccionada para la exportación."
+        )
+    else:
+        st.caption(
+            "Vista de comparación; actualmente no está seleccionada."
+        )
+
+    show_preview(
+        preview_concept_df,
+        concept_sample_count,
+        preview_concept_errors,
+        "concept",
+    )
+
+with document_tab:
+    if representation == "por_comprobante":
+        st.success(
+            "✅ Esta es la estructura seleccionada para la exportación."
+        )
+    else:
+        st.caption(
+            "Vista de comparación; actualmente no está seleccionada."
+        )
+
+    show_preview(
+        preview_document_df,
+        document_sample_count,
+        preview_document_errors,
+        "document",
+    )
+
+
+# ============================================================
+# 6. PROCESAR
+# ============================================================
+
+st.markdown("## 6. Procesar y descargar")
+
+s1, s2, s3 = st.columns(3)
+s1.metric("XML por procesar", f"{analysis['total']:,}")
+s2.metric("Estructura", representation_label)
+s3.metric(
+    "Salida",
+    (
+        "Excel individual"
+        if analysis["total"] == 1
+        else (
+            "Excel consolidado"
+            if output_mode == "consolidated"
+            else "ZIP con Excel individuales"
+        )
+    ),
+)
+
+button_label = (
+    "Convertir este XML a Excel"
+    if analysis["total"] == 1
+    else f"Procesar {analysis['total']:,} XML"
+)
+
+if st.button(
+    button_label,
+    type="primary",
+    use_container_width=True,
+):
+    st.session_state.download_data = None
+    st.session_state.download_name = None
+    st.session_state.download_mime = None
+    st.session_state.summary = None
+
     progress = st.progress(0)
     status = st.empty()
     started = time.time()
+
     try:
-        if analysis["total"] == 1 or output_mode == "Consolidar todos en un solo Excel":
-            rows, errors = process_consolidated(uploaded_files, representation, exclude_technical, progress, status)
-            st.session_state.download_data = rows_to_excel(rows, "CFDI" if analysis["total"] == 1 else "CFDI_Consolidado", errors)
-            st.session_state.download_name = "CFDI_Consolidado.xlsx" if analysis["total"] > 1 else f"{Path(next(iter_xmls(uploaded_files))[0]).stem}_convertido.xlsx"
-            st.session_state.download_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            st.session_state.summary = {"procesados": analysis["total"], "correctos": analysis["total"] - len(errors), "errores": len(errors), "filas": len(rows), "tiempo": time.time() - started}
+        if analysis["total"] == 1 or output_mode == "consolidated":
+            rows, errors = process_consolidated(
+                uploaded_files,
+                representation,
+                exclude_technical,
+                progress,
+                status,
+            )
+
+            st.session_state.download_data = rows_to_excel(
+                rows,
+                "CFDI" if analysis["total"] == 1 else "CFDI_Consolidado",
+                errors,
+            )
+
+            if analysis["total"] == 1:
+                first_name = next(iter_xmls(uploaded_files))[0]
+                st.session_state.download_name = (
+                    f"{Path(first_name).stem}_convertido.xlsx"
+                )
+            else:
+                st.session_state.download_name = "CFDI_Consolidado.xlsx"
+
+            st.session_state.download_mime = (
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            )
+
+            st.session_state.summary = {
+                "procesados": analysis["total"],
+                "correctos": analysis["total"] - len(errors),
+                "errores": len(errors),
+                "filas": len(rows),
+                "tiempo": time.time() - started,
+                "estructura": representation_label,
+                "salida": (
+                    "Excel individual"
+                    if analysis["total"] == 1
+                    else "Excel consolidado"
+                ),
+            }
+
         else:
-            data, errors = process_individual(uploaded_files, representation, exclude_technical, progress, status)
+            data, errors = process_individual(
+                uploaded_files,
+                representation,
+                exclude_technical,
+                progress,
+                status,
+            )
+
             st.session_state.download_data = data
             st.session_state.download_name = "CFDI_Individuales.zip"
             st.session_state.download_mime = "application/zip"
-            st.session_state.summary = {"procesados": analysis["total"], "correctos": analysis["total"] - len(errors), "errores": len(errors), "filas": None, "tiempo": time.time() - started}
+
+            st.session_state.summary = {
+                "procesados": analysis["total"],
+                "correctos": analysis["total"] - len(errors),
+                "errores": len(errors),
+                "filas": None,
+                "tiempo": time.time() - started,
+                "estructura": representation_label,
+                "salida": "ZIP con Excel individuales",
+            }
+
         status.success("Procesamiento completado.")
+
     except Exception as exc:
-        st.error(f"No fue posible completar el procesamiento: {exc}")
+        st.error(
+            f"No fue posible completar el procesamiento: {exc}"
+        )
+
+
+# ============================================================
+# 7. RESULTADO
+# ============================================================
 
 if st.session_state.summary:
-    s = st.session_state.summary
+    summary = st.session_state.summary
+
     st.success("Conversión completada correctamente.")
+
     r1, r2, r3, r4 = st.columns(4)
-    r1.metric("XML procesados", f"{s['procesados']:,}")
-    r2.metric("Correctos", f"{s['correctos']:,}")
-    r3.metric("Con error", f"{s['errores']:,}")
-    r4.metric("Tiempo", f"{s['tiempo']:.2f} s")
+    r1.metric("XML procesados", f"{summary['procesados']:,}")
+    r2.metric("Correctos", f"{summary['correctos']:,}")
+    r3.metric("Con error", f"{summary['errores']:,}")
+    r4.metric("Tiempo", f"{summary['tiempo']:.2f} s")
+
+    st.caption(
+        f"Estructura: {summary['estructura']} · "
+        f"Salida: {summary['salida']}"
+    )
 
 if st.session_state.download_data:
-    st.download_button(f"⬇️ Descargar {st.session_state.download_name}", st.session_state.download_data, st.session_state.download_name, st.session_state.download_mime, use_container_width=True)
-    st.markdown('<div class="signature">Aquí debe descargarlo ella 👆<br>Hecho por tu novio el ingeniero xd 😎</div>', unsafe_allow_html=True)
+    st.download_button(
+        label=f"⬇️ Descargar {st.session_state.download_name}",
+        data=st.session_state.download_data,
+        file_name=st.session_state.download_name,
+        mime=st.session_state.download_mime,
+        use_container_width=True,
+    )
+
+    st.markdown(
+        '<div class="signature">'
+        'Aquí debe descargarlo ella 👆<br>'
+        'Hecho por tu novio el ingeniero xd 😎'
+        '</div>',
+        unsafe_allow_html=True,
+    )
