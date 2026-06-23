@@ -317,7 +317,7 @@ for key, value in {
 
 
 with st.sidebar:
-    st.header("⚙️ Opciones avanzadas")
+    st.header(" Opciones avanzadas")
 
     exclude_technical = st.checkbox(
         "Excluir sellos y certificados largos",
@@ -336,10 +336,6 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.caption(
-        "Las columnas se generan dinámicamente desde cada XML. "
-        "No se hardcodean proveedores, UUID ni campos concretos."
-    )
 
 
 # ============================================================
@@ -807,7 +803,6 @@ if st.session_state.download_data:
 
     st.markdown(
         '<div class="signature">'
-        'Aquí debe descargarlo ella 👆<br>'
         'Hecho por tu novio el ingeniero xd 😎'
         '</div>',
         unsafe_allow_html=True,
