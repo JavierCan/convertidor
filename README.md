@@ -1,34 +1,50 @@
-# CFDI a Excel — Streamlit App
+# CFDI a Excel — UI para contabilidad
 
 Proyecto listo para desplegar en Streamlit Community Cloud.
 
-## Funcionalidades
+## Arquitectura
 
-- Carga uno o múltiples XML.
-- Carga uno o múltiples ZIP con XML.
-- Detecta la estructura XML/CFDI automáticamente.
-- Preview por concepto o por comprobante.
-- Con un solo XML no muestra la opción de consolidar.
-- Con varios XML permite consolidar o generar archivos individuales dentro de un ZIP.
-- Columnas dinámicas, sin hardcodear proveedor, UUID ni campos concretos.
-- Exclusión opcional de sellos y certificados largos.
-- Reporte de errores sin detener el resto del proceso.
-- Frontend HTML/CSS/JS integrado dentro de Streamlit.
-
-## Estructura
+Toda la interfaz y la lógica de negocio viven en HTML, CSS y JavaScript:
 
 ```text
-cfdi_streamlit_app/
+cfdi_contador_frontend/
 ├── app.py
 ├── requirements.txt
 ├── README.md
-├── assets/
+├── build.py
+├── src/
 │   ├── index.html
 │   ├── styles.css
-│   └── script.js
-└── examples/
-    └── ejemplo.xml
+│   └── app.js
+└── dist/
+    └── app.min.html
 ```
+
+`app.py` únicamente lee y carga `dist/app.min.html`.
+
+## Experiencia diseñada para un contador
+
+- Lenguaje contable, no técnico.
+- Carga de XML y ZIP.
+- Resumen de comprobantes, conceptos y observaciones.
+- Elección entre una fila por concepto o por comprobante.
+- Un Excel consolidado o un Excel por XML.
+- Selección de campos contables principales.
+- Reordenamiento de columnas con arrastrar y soltar o flechas.
+- Vista previa antes de exportar.
+- Conversión de importes y cantidades a valores numéricos.
+- Layouts guardados en el navegador mediante `localStorage`.
+- Importación y exportación de layouts JSON.
+- Procesamiento local en el navegador: los XML no se envían al servidor.
+
+## Dependencias del frontend
+
+El HTML usa estas bibliotecas desde CDN:
+
+- SheetJS para generar Excel.
+- JSZip para leer y crear ZIP.
+
+El navegador del usuario necesita acceso a internet para cargar esas bibliotecas.
 
 ## Ejecutar localmente
 
@@ -37,12 +53,33 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Deploy
+## Deploy en Streamlit Community Cloud
 
-1. Crea un repositorio en GitHub.
-2. Sube todo el contenido de esta carpeta.
-3. En Streamlit Community Cloud selecciona el repositorio.
-4. Usa `app.py` como Main file path.
-5. Pulsa **Deploy**.
+1. Sube esta carpeta a GitHub.
+2. Selecciona el repositorio en Streamlit Community Cloud.
+3. Usa como archivo principal:
+   - `app.py`, si esta carpeta es la raíz.
+   - `cfdi_contador_frontend/app.py`, si está dentro de otro repositorio.
+4. Pulsa **Deploy**.
 
-Para miles de CFDI, es preferible cargarlos dentro de uno o varios ZIP.
+## Editar el frontend
+
+Modifica:
+
+```text
+src/index.html
+src/styles.css
+src/app.js
+```
+
+Después ejecuta:
+
+```bash
+python build.py
+```
+
+Esto regenera:
+
+```text
+dist/app.min.html
+```

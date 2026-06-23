@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
+  <title>CFDI a Excel</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>:root{--bg:#f5f7fa;--surface:#fff;--surface-soft:#f8fafc;--border:#dbe3ea;--border-strong:#c5d1dc;--text:#16202a;--muted:#607080;--primary:#0f766e;--primary-dark:#115e59;--primary-soft:#e6fffb;--accent:#16a34a;--warning:#b45309;--warning-soft:#fff7ed;--danger:#b91c1c;--shadow:0 12px 34px rgba(15,23,42,.08);--radius:18px;--radius-sm:12px;}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.5;}button,input,select{font:inherit}button{cursor:pointer}.is-hidden{display:none!important}.app-shell{min-height:100vh}.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;min-height:68px;padding:10px 28px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);}.brand{display:flex;align-items:center;gap:12px}.brand__mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;color:#fff;background:linear-gradient(145deg,var(--primary),var(--primary-dark));font-weight:800;box-shadow:0 8px 18px rgba(15,118,110,.25);}.brand__eyebrow{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}.brand__name{font-size:18px;font-weight:800}.page{width:min(1480px,100%);margin:0 auto;padding:24px}.hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:28px;align-items:center;min-height:250px;padding:34px 38px;color:#fff;background:radial-gradient(circle at 90% 10%,rgba(94,234,212,.26),transparent 34%),linear-gradient(135deg,#134e4a 0%,#0f766e 52%,#0b5b56 100%);border-radius:26px;box-shadow:var(--shadow);}.hero:after{content:"";position:absolute;inset:auto -70px -110px auto;width:300px;height:300px;border-radius:50%;border:1px solid rgba(255,255,255,.13);}.hero__copy{position:relative;z-index:2}.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:700;}.pill__dot{width:8px;height:8px;border-radius:50%;background:#5eead4;box-shadow:0 0 0 4px rgba(94,234,212,.14)}.hero h1{margin:16px 0 12px;font-size:clamp(32px,4.5vw,55px);line-height:1.02;letter-spacing:-.045em}.hero h1 span{color:#99f6e4}.hero p{max-width:770px;margin:0;color:#d8fffa;font-size:16px}.hero__trust{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:22px;color:#d8fffa;font-size:12px;font-weight:650}.hero__visual{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:16px}.doc-card{display:flex;flex-direction:column;align-items:center;justify-content:center;width:138px;height:148px;padding:18px;color:var(--text);background:#fff;border-radius:20px;box-shadow:0 22px 45px rgba(0,0,0,.18);text-align:center;}.doc-card--xml{transform:rotate(-4deg) translateY(8px)}.doc-card--excel{transform:rotate(4deg) translateY(-8px)}.doc-card__icon{display:grid;place-items:center;width:50px;height:50px;margin-bottom:10px;border-radius:15px;color:#fff;background:#1e293b;font-size:20px;font-weight:900}.doc-card--excel .doc-card__icon{background:var(--accent)}.doc-card small{color:var(--muted);font-size:10px;margin-top:3px}.flow-arrow{font-size:34px;color:#99f6e4}.stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0;}.step{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;color:var(--muted);background:#fff;text-align:left;}.step>span{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#edf2f7;color:#526271;font-weight:800;}.step strong,.step small{display:block}.step small{font-size:11px;color:var(--muted)}.step.is-active{border-color:#8ddbd4;background:var(--primary-soft);color:var(--primary-dark)}.step.is-active>span{background:var(--primary);color:#fff}.step.is-complete>span{background:var(--accent);color:#fff}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}.panel--main{overflow:hidden}.panel--aside{position:sticky;top:86px;padding:14px}.section{padding:26px;border-bottom:1px solid var(--border)}.section:last-child{border-bottom:none}.section.is-disabled{opacity:.46;pointer-events:none;filter:grayscale(.15)}.section__header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}.section__header--split{align-items:center}.section__kicker{display:block;margin-bottom:4px;color:var(--primary);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em}.section h2,.dialog__header h2{margin:0;font-size:24px;letter-spacing:-.025em}.section__header p{margin:5px 0 0;color:var(--muted)}.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;padding:28px;border:2px dashed #7dd3c7;border-radius:18px;background:linear-gradient(180deg,#f5fffd,#f8fafc);text-align:center;transition:.2s;}.dropzone:hover,.dropzone.is-dragover{border-color:var(--primary);background:#ecfdfa;transform:translateY(-1px)}.dropzone input{display:none}.dropzone__icon{display:grid;place-items:center;width:54px;height:54px;margin-bottom:12px;border-radius:16px;color:#fff;background:var(--primary);font-size:28px}.dropzone strong{font-size:18px}.dropzone span{color:var(--muted)}.dropzone small{margin-top:10px;color:#7a8997}.file-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.metric{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft)}.metric__label{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.metric strong{display:block;margin-top:3px;font-size:25px}.metric--warning strong{color:var(--warning)}.notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:13px 15px;border-radius:13px}.notice strong,.notice p{display:block;margin:0}.notice p{color:var(--muted);font-size:12px}.notice--warning{border:1px solid #fed7aa;background:var(--warning-soft)}.notice--info{border:1px solid #bae6fd;background:#f0f9ff}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.choice-card{position:relative;padding:18px;border:2px solid var(--border);border-radius:16px;background:#fff;cursor:pointer;transition:.18s;}.choice-card input{position:absolute;opacity:0}.choice-card__top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.choice-card__icon{font-size:25px}.choice-card__check{display:none;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff;background:var(--primary);font-weight:800}.choice-card strong{display:block;font-size:17px}.choice-card p{margin:4px 0;color:var(--text)}.choice-card small{color:var(--muted)}.choice-card:hover{border-color:#9fd8d2}.choice-card.is-selected{border-color:var(--primary);background:var(--primary-soft)}.choice-card.is-selected .choice-card__check{display:grid}.subsection{margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}.subsection__title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.subsection__title h3{margin:0;font-size:16px}.tag{display:inline-flex;padding:4px 9px;border-radius:999px;color:#425465;background:#edf2f7;font-size:11px;font-weight:700}.segmented{display:grid;grid-template-columns:1fr 1fr;padding:5px;border-radius:14px;background:#edf2f7}.segmented__option{padding:12px;border-radius:10px;cursor:pointer}.segmented__option input{position:absolute;opacity:0}.segmented__option strong,.segmented__option small{display:block}.segmented__option small{color:var(--muted);font-size:11px}.segmented__option.is-selected{background:#fff;box-shadow:0 4px 12px rgba(15,23,42,.08)}.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px;border:1px solid var(--border);border-radius:14px;background:#fff}.toggle-row strong,.toggle-row small{display:block}.toggle-row small{color:var(--muted);font-size:11px}.toggle-row--compact{margin-top:14px;padding:12px}.switch{appearance:none;position:relative;flex:0 0 42px;width:42px;height:24px;border-radius:999px;background:#cbd5df;transition:.2s}.switch:before{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.2s}.switch:checked{background:var(--primary)}.switch:checked:before{transform:translateX(18px)}.selected-counter{padding:10px 14px;border-radius:13px;background:var(--primary-soft);text-align:right}.selected-counter strong,.selected-counter span{display:block}.selected-counter strong{font-size:24px;color:var(--primary-dark)}.selected-counter span{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700}.layout-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft)}.layout-toolbar__group{display:flex;align-items:flex-end;gap:8px}.field{display:flex;flex-direction:column;gap:5px}.field>span{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}select,input[type=text],input[type=search]{width:100%;min-height:40px;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;color:var(--text);background:#fff;outline:none}select:focus,input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(15,118,110,.1)}.column-workbench{display:grid;grid-template-columns:265px minmax(0,1fr);gap:14px}.column-sidebar,.column-main{border:1px solid var(--border);border-radius:15px;background:#fff}.column-sidebar{padding:14px}.search{position:relative}.search span{position:absolute;left:11px;top:9px;color:var(--muted)}.search input{padding-left:32px}.quick-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{padding:6px 9px;border:1px solid var(--border);border-radius:999px;color:#435363;background:#f8fafc;font-size:11px;font-weight:700}.chip:hover{border-color:#9fd8d2;background:var(--primary-soft)}.layout-save-card{margin-top:14px;padding:13px;border-radius:13px;background:#f6f8fa}.layout-save-card strong{display:block}.layout-save-card p{margin:3px 0 10px;color:var(--muted);font-size:11px}.layout-save-card .button{margin-top:9px}.checkbox-line{display:flex;align-items:center;gap:7px;margin-top:8px;color:var(--muted);font-size:11px}.column-main{overflow:hidden}.column-list-header{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--border)}.column-list-header strong,.column-list-header small{display:block}.column-list-header small{color:var(--muted)}.column-list{max-height:490px;overflow:auto;padding:8px}.column-item{display:grid;grid-template-columns:28px 24px minmax(0,1fr) 62px;gap:8px;align-items:center;padding:9px;border:1px solid transparent;border-radius:10px;background:#fff}.column-item:hover{border-color:var(--border);background:#f8fafc}.column-item.is-dragging{opacity:.45}.column-item__handle{color:#91a0ae;cursor:grab;font-size:18px;text-align:center}.column-item__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650}.column-item__actions{display:flex;justify-content:flex-end;gap:4px}.icon-mini{display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--border);border-radius:7px;background:#fff;color:#526271}.icon-mini:hover{color:var(--primary);border-color:#9fd8d2}.preview-card{margin-top:16px;border:1px solid var(--border);border-radius:15px;overflow:hidden}.preview-card__header{display:flex;align-items:center;justify-content:space-between;padding:14px;border-bottom:1px solid var(--border)}.preview-card__header h3,.preview-card__header p{margin:0}.preview-card__header p{color:var(--muted);font-size:12px}.table-wrap{overflow:auto;max-height:400px}table{border-collapse:separate;border-spacing:0;min-width:100%;font-size:11px}th,td{padding:9px 10px;border-right:1px solid #e8edf2;border-bottom:1px solid #e8edf2;text-align:left;white-space:nowrap}th{position:sticky;top:0;z-index:2;color:#fff;background:#334155;font-weight:700}tbody tr:nth-child(even){background:#f8fafc}.preview-empty{padding:42px;text-align:center;color:var(--muted)}.final-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.final-summary>div{padding:13px;border:1px solid var(--border);border-radius:13px;background:var(--surface-soft)}.final-summary span,.final-summary strong{display:block}.final-summary span{color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:700}.final-summary strong{margin-top:3px}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:9px 14px;border:1px solid transparent;border-radius:10px;font-weight:750}.button:disabled{opacity:.45;cursor:not-allowed}.button--primary{color:#fff;background:var(--primary)}.button--primary:hover{background:var(--primary-dark)}.button--secondary{color:var(--primary-dark);border-color:#9fd8d2;background:var(--primary-soft)}.button--ghost{color:#405160;border-color:var(--border);background:#fff}.button--small{min-height:34px;padding:6px 10px;font-size:12px}.button--download{width:100%;justify-content:flex-start;min-height:68px;padding:13px 18px;color:#fff;background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 12px 25px rgba(22,163,74,.25)}.button--download:hover{background:linear-gradient(135deg,#15803d,#166534)}.button--download span{display:block;text-align:left}.button--download small{display:block;color:#dcfce7;font-weight:500}.button__icon{display:grid!important;place-items:center;width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.14);font-size:22px}.link-button{padding:0;border:none;color:var(--primary);background:transparent;font-weight:750}.link-button--danger{display:block;margin:10px auto 0;color:var(--danger);font-size:11px}.progress-card,.result-card{margin-top:14px;padding:15px;border:1px solid var(--border);border-radius:14px;background:#fff}.progress-card__top{display:flex;justify-content:space-between;margin-bottom:9px}.progress{height:9px;border-radius:999px;background:#e8eef3;overflow:hidden}.progress>div{width:0;height:100%;background:linear-gradient(90deg,var(--primary),#2dd4bf);transition:width .2s}.progress-card small{display:block;margin-top:7px;color:var(--muted)}.result-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;border-color:#bbf7d0;background:#f0fdf4}.result-card__icon{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;color:#fff;background:var(--accent);font-size:23px;font-weight:900}.result-card strong,.result-card p{display:block;margin:0}.result-card p{color:var(--muted);font-size:12px}.aside-card{padding:15px;border-bottom:1px solid var(--border)}.aside-card:last-child{border-bottom:none}.aside-card__icon{font-size:24px}.aside-card h3{margin:7px 0 5px;font-size:15px}.aside-card p{margin:0;color:var(--muted);font-size:12px}.session-summary{margin:8px 0 0}.session-summary>div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--border)}.session-summary>div:last-child{border-bottom:none}.session-summary dt{color:var(--muted);font-size:11px}.session-summary dd{margin:0;font-size:11px;font-weight:750;text-align:right}footer{display:flex;justify-content:space-between;gap:15px;padding:18px 5px 4px;color:#778694;font-size:11px}dialog{width:min(620px,calc(100% - 28px));padding:0;border:none;border-radius:18px;box-shadow:0 24px 80px rgba(15,23,42,.25)}dialog::backdrop{background:rgba(15,23,42,.55);backdrop-filter:blur(3px)}.dialog__header{display:flex;justify-content:space-between;gap:12px;padding:20px;border-bottom:1px solid var(--border)}.dialog__actions{display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid var(--border)}.icon-button{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:10px;background:#fff;font-size:21px}.help-list{margin:0;padding:20px 42px}.help-list li{margin:0 0 12px}.error-list{max-height:420px;overflow:auto;padding:15px 20px}.error-row{padding:10px;border-bottom:1px solid var(--border)}.error-row strong,.error-row small{display:block}.error-row small{color:var(--danger)}.toast-container{position:fixed;right:20px;bottom:20px;z-index:100;display:flex;flex-direction:column;gap:8px}.toast{min-width:270px;max-width:360px;padding:12px 14px;border-radius:12px;color:#fff;background:#1e293b;box-shadow:0 15px 35px rgba(15,23,42,.22);animation:toast-in .2s ease-out}.toast--success{background:#166534}.toast--error{background:#991b1b}@keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1080px){.workspace{grid-template-columns:1fr}.panel--aside{position:static;display:grid;grid-template-columns:repeat(3,1fr)}.aside-card{border-right:1px solid var(--border);border-bottom:none}.column-workbench{grid-template-columns:230px minmax(0,1fr)}}@media(max-width:760px){.page{padding:12px}.topbar{padding:9px 14px}.hero{grid-template-columns:1fr;padding:26px 22px}.hero__visual{display:none}.stepper{grid-template-columns:1fr 1fr}.workspace{display:block}.panel--aside{display:block;margin-top:14px}.aside-card{border-right:none;border-bottom:1px solid var(--border)}.section{padding:20px 15px}.choice-grid,.options-grid,.file-summary,.final-summary{grid-template-columns:1fr 1fr}.column-workbench{grid-template-columns:1fr}.layout-toolbar{align-items:stretch;flex-direction:column}.layout-toolbar__group{align-items:stretch;flex-wrap:wrap}.column-list{max-height:380px}footer{flex-direction:column;text-align:center}}@media(max-width:500px){.choice-grid,.options-grid,.file-summary,.final-summary,.stepper{grid-template-columns:1fr}.segmented{grid-template-columns:1fr}.section__header--split{align-items:flex-start;flex-direction:column}.selected-counter{text-align:left}.result-card{grid-template-columns:44px 1fr}.result-card .button{grid-column:1/-1}}</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">CF</div>
+        <div>
+          <div class="brand__eyebrow">Herramienta contable</div>
+          <div class="brand__name">CFDI a Excel</div>
+        </div>
+      </div>
+      <button class="button button--ghost button--small" id="openHelp" type="button">
+        <span aria-hidden="true">?</span>
+        Ayuda
+      </button>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <div class="hero__copy">
+          <div class="pill">
+            <span class="pill__dot"></span>
+            Conversión segura y ordenada
+          </div>
+          <h1>Organiza tus CFDI en Excel<br><span>sin capturar datos a mano</span></h1>
+          <p>
+            Carga XML o ZIP, revisa cómo quedará la tabla, elige las columnas
+            contables y descarga un archivo listo para trabajar.
+          </p>
+          <div class="hero__trust">
+            <span>✓ Los archivos se procesan en tu navegador</span>
+            <span>✓ No se envían a un servidor externo</span>
+          </div>
+        </div>
+        <div class="hero__visual" aria-hidden="true">
+          <div class="doc-card doc-card--xml">
+            <span class="doc-card__icon">&lt;/&gt;</span>
+            <strong>CFDI XML</strong>
+            <small>Facturas y complementos</small>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="doc-card doc-card--excel">
+            <span class="doc-card__icon">X</span>
+            <strong>Excel</strong>
+            <small>Ordenado y filtrable</small>
+          </div>
+        </div>
+      </section>
+
+      <nav class="stepper" aria-label="Progreso">
+        <button class="step is-active" data-step-target="1" type="button">
+          <span>1</span>
+          <div><strong>Cargar</strong><small>XML o ZIP</small></div>
+        </button>
+        <button class="step" data-step-target="2" type="button">
+          <span>2</span>
+          <div><strong>Configurar</strong><small>Vista y salida</small></div>
+        </button>
+        <button class="step" data-step-target="3" type="button">
+          <span>3</span>
+          <div><strong>Columnas</strong><small>Elegir y ordenar</small></div>
+        </button>
+        <button class="step" data-step-target="4" type="button">
+          <span>4</span>
+          <div><strong>Descargar</strong><small>Excel o ZIP</small></div>
+        </button>
+      </nav>
+
+      <section class="workspace">
+        <section class="panel panel--main">
+          <div class="section" id="step1" data-step="1">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 1</span>
+                <h2>Carga tus comprobantes</h2>
+                <p>Puedes seleccionar un XML, varios XML o uno o varios ZIP.</p>
+              </div>
+            </div>
+
+            <label class="dropzone" id="dropzone" for="fileInput">
+              <input id="fileInput" type="file" accept=".xml,.zip,text/xml,application/zip" multiple>
+              <div class="dropzone__icon">⇧</div>
+              <strong>Arrastra aquí tus archivos</strong>
+              <span>o haz clic para buscarlos en tu computadora</span>
+              <small>Formatos admitidos: XML y ZIP</small>
+            </label>
+
+            <div class="file-summary is-hidden" id="fileSummary">
+              <div class="metric">
+                <span class="metric__label">XML encontrados</span>
+                <strong id="metricXml">0</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label">Comprobantes válidos</span>
+                <strong id="metricValid">0</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label">Conceptos</span>
+                <strong id="metricConcepts">0</strong>
+              </div>
+              <div class="metric metric--warning">
+                <span class="metric__label">Con observaciones</span>
+                <strong id="metricErrors">0</strong>
+              </div>
+            </div>
+
+            <div class="notice notice--warning is-hidden" id="errorNotice">
+              <div>
+                <strong>Algunos archivos no pudieron leerse</strong>
+                <p>La conversión continuará con los comprobantes válidos.</p>
+              </div>
+              <button class="link-button" id="viewErrors" type="button">Ver detalle</button>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step2" data-step="2">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 2</span>
+                <h2>Define cómo quieres tu Excel</h2>
+                <p>Elige el nivel de detalle que mejor se adapte a tu trabajo.</p>
+              </div>
+            </div>
+
+            <div class="choice-grid">
+              <label class="choice-card is-selected">
+                <input type="radio" name="representation" value="concept" checked>
+                <div class="choice-card__top">
+                  <span class="choice-card__icon">🧾</span>
+                  <span class="choice-card__check">✓</span>
+                </div>
+                <strong>Una fila por concepto</strong>
+                <p>Cada producto o servicio ocupa una fila.</p>
+                <small>Recomendado para compras, gastos, impuestos y Power BI.</small>
+              </label>
+
+              <label class="choice-card">
+                <input type="radio" name="representation" value="document">
+                <div class="choice-card__top">
+                  <span class="choice-card__icon">📄</span>
+                  <span class="choice-card__check">✓</span>
+                </div>
+                <strong>Una fila por comprobante</strong>
+                <p>Cada XML ocupa una sola fila.</p>
+                <small>Recomendado para revisar folios, proveedores y totales.</small>
+              </label>
+            </div>
+
+            <div class="subsection" id="outputModeSection">
+              <div class="subsection__title">
+                <h3>Forma de descarga</h3>
+                <span class="tag" id="fileCountTag">1 archivo</span>
+              </div>
+
+              <div class="segmented" id="outputModeOptions">
+                <label class="segmented__option is-selected">
+                  <input type="radio" name="outputMode" value="consolidated" checked>
+                  <span>
+                    <strong>Un solo Excel consolidado</strong>
+                    <small>Todos los CFDI en una misma tabla</small>
+                  </span>
+                </label>
+                <label class="segmented__option">
+                  <input type="radio" name="outputMode" value="individual">
+                  <span>
+                    <strong>Un Excel por cada XML</strong>
+                    <small>Se descargan juntos dentro de un ZIP</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="notice notice--info is-hidden" id="singleFileNotice">
+                <div>
+                  <strong>Solo cargaste un XML</strong>
+                  <p>Se generará un Excel individual; no hay archivos que unir.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="options-grid">
+              <label class="toggle-row">
+                <span>
+                  <strong>Ocultar sellos y certificados</strong>
+                  <small>Reduce el tamaño y deja visibles los datos contables.</small>
+                </span>
+                <input class="switch" id="excludeTechnical" type="checkbox" checked>
+              </label>
+
+              <label class="toggle-row">
+                <span>
+                  <strong>Convertir importes a números</strong>
+                  <small>Permite sumar y calcular directamente en Excel.</small>
+                </span>
+                <input class="switch" id="convertNumbers" type="checkbox" checked>
+              </label>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step3" data-step="3">
+            <div class="section__header section__header--split">
+              <div>
+                <span class="section__kicker">Paso 3</span>
+                <h2>Elige y ordena las columnas</h2>
+                <p>La selección se aplicará al preview y al archivo descargado.</p>
+              </div>
+              <div class="selected-counter">
+                <strong id="selectedCount">0</strong>
+                <span>columnas seleccionadas</span>
+              </div>
+            </div>
+
+            <div class="layout-toolbar">
+              <div class="layout-toolbar__group">
+                <label class="field">
+                  <span>Layout guardado</span>
+                  <select id="layoutSelect">
+                    <option value="">Sin layout guardado</option>
+                  </select>
+                </label>
+                <button class="button button--secondary" id="applyLayout" type="button">Aplicar</button>
+              </div>
+              <div class="layout-toolbar__group">
+                <button class="button button--ghost" id="importLayout" type="button">Importar JSON</button>
+                <input class="is-hidden" id="layoutFileInput" type="file" accept=".json,application/json">
+                <button class="button button--ghost" id="exportLayout" type="button">Exportar JSON</button>
+              </div>
+            </div>
+
+            <div class="column-workbench">
+              <aside class="column-sidebar">
+                <div class="field">
+                  <span>Buscar columna</span>
+                  <div class="search">
+                    <span>⌕</span>
+                    <input id="columnSearch" type="search" placeholder="Ej. UUID, RFC, Total...">
+                  </div>
+                </div>
+
+                <div class="quick-actions">
+                  <button class="chip" id="selectRecommended" type="button">Campos contables</button>
+                  <button class="chip" id="selectAll" type="button">Seleccionar todo</button>
+                  <button class="chip" id="clearAll" type="button">Quitar todo</button>
+                </div>
+
+                <label class="toggle-row toggle-row--compact">
+                  <span>
+                    <strong>Agregar campos nuevos</strong>
+                    <small>Los coloca al final si aparecen en otros XML.</small>
+                  </span>
+                  <input class="switch" id="includeNewColumns" type="checkbox" checked>
+                </label>
+
+                <div class="layout-save-card">
+                  <strong>Guardar esta vista</strong>
+                  <p>La próxima vez se seleccionarán las mismas columnas.</p>
+                  <input id="layoutName" type="text" placeholder="Ej. Gastos mensuales">
+                  <label class="checkbox-line">
+                    <input id="setAsDefault" type="checkbox" checked>
+                    Usar automáticamente la próxima vez
+                  </label>
+                  <button class="button button--primary" id="saveLayout" type="button">Guardar layout</button>
+                  <button class="link-button link-button--danger" id="deleteLayout" type="button">Eliminar layout seleccionado</button>
+                </div>
+              </aside>
+
+              <div class="column-main">
+                <div class="column-list-header">
+                  <div>
+                    <strong>Columnas del Excel</strong>
+                    <small>Arrastra para cambiar el orden o usa las flechas.</small>
+                  </div>
+                  <span class="tag" id="sampleTag">Muestra</span>
+                </div>
+
+                <div class="column-list" id="columnList"></div>
+              </div>
+            </div>
+
+            <div class="preview-card">
+              <div class="preview-card__header">
+                <div>
+                  <h3>Vista previa del resultado</h3>
+                  <p id="previewDescription">Así se verá el Excel con las columnas seleccionadas.</p>
+                </div>
+                <button class="button button--ghost button--small" id="refreshPreview" type="button">Actualizar preview</button>
+              </div>
+              <div class="table-wrap">
+                <table id="previewTable">
+                  <thead></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="preview-empty is-hidden" id="previewEmpty">
+                Selecciona al menos una columna para ver la vista previa.
+              </div>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step4" data-step="4">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 4</span>
+                <h2>Revisa y descarga</h2>
+                <p>Confirma el resumen antes de generar el archivo final.</p>
+              </div>
+            </div>
+
+            <div class="final-summary">
+              <div><span>Comprobantes</span><strong id="finalXmlCount">0</strong></div>
+              <div><span>Estructura</span><strong id="finalRepresentation">Por concepto</strong></div>
+              <div><span>Columnas</span><strong id="finalColumnCount">0</strong></div>
+              <div><span>Salida</span><strong id="finalOutput">Excel</strong></div>
+            </div>
+
+            <button class="button button--download" id="processButton" type="button" disabled>
+              <span class="button__icon">↓</span>
+              <span>
+                <strong id="processButtonTitle">Generar archivo</strong>
+                <small id="processButtonSubtitle">Primero carga tus CFDI</small>
+              </span>
+            </button>
+
+            <div class="progress-card is-hidden" id="progressCard">
+              <div class="progress-card__top">
+                <strong id="progressTitle">Procesando CFDI</strong>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress"><div id="progressBar"></div></div>
+              <small id="progressDetail">Preparando archivos...</small>
+            </div>
+
+            <div class="result-card is-hidden" id="resultCard">
+              <div class="result-card__icon">✓</div>
+              <div>
+                <strong>Tu archivo está listo</strong>
+                <p id="resultText">La conversión terminó correctamente.</p>
+              </div>
+              <button class="button button--primary" id="downloadButton" type="button">Descargar ahora</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel panel--aside">
+          <div class="aside-card">
+            <span class="aside-card__icon">💡</span>
+            <h3>Recomendación contable</h3>
+            <p>
+              Usa <strong>una fila por concepto</strong> cuando necesites analizar
+              productos, servicios, IVA o gastos por proveedor.
+            </p>
+          </div>
+
+          <div class="aside-card">
+            <span class="aside-card__icon">🔒</span>
+            <h3>Tus archivos permanecen privados</h3>
+            <p>
+              El procesamiento ocurre dentro de tu navegador. La app no guarda
+              ni transmite tus XML.
+            </p>
+          </div>
+
+          <div class="aside-card aside-card--compact">
+            <h3>Resumen de la sesión</h3>
+            <dl class="session-summary">
+              <div><dt>Archivos cargados</dt><dd id="sideFiles">0</dd></div>
+              <div><dt>XML detectados</dt><dd id="sideXml">0</dd></div>
+              <div><dt>Layout activo</dt><dd id="sideLayout">Ninguno</dd></div>
+            </dl>
+          </div>
+        </aside>
+      </section>
+
+      <footer>
+        <span>CFDI a Excel · Herramienta para organización contable</span>
+        <span>Hecho con cariño por tu novio, el ingeniero 😎</span>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="helpDialog">
+    <div class="dialog__header">
+      <div>
+        <span class="section__kicker">Ayuda rápida</span>
+        <h2>¿Cómo usar la herramienta?</h2>
+      </div>
+      <button class="icon-button" data-close-dialog="helpDialog" type="button">×</button>
+    </div>
+    <ol class="help-list">
+      <li><strong>Carga</strong> XML sueltos o archivos ZIP con CFDI.</li>
+      <li><strong>Elige</strong> si necesitas una fila por concepto o por comprobante.</li>
+      <li><strong>Selecciona</strong> las columnas y acomódalas en el orden deseado.</li>
+      <li><strong>Guarda el layout</strong> para usar la misma vista en futuras sesiones.</li>
+      <li><strong>Genera y descarga</strong> el Excel consolidado o el ZIP de archivos individuales.</li>
+    </ol>
+    <div class="dialog__actions">
+      <button class="button button--primary" data-close-dialog="helpDialog" type="button">Entendido</button>
+    </div>
+  </dialog>
+
+  <dialog id="errorsDialog">
+    <div class="dialog__header">
+      <div>
+        <span class="section__kicker">Observaciones</span>
+        <h2>Archivos que no pudieron procesarse</h2>
+      </div>
+      <button class="icon-button" data-close-dialog="errorsDialog" type="button">×</button>
+    </div>
+    <div class="error-list" id="errorList"></div>
+    <div class="dialog__actions">
+      <button class="button button--primary" data-close-dialog="errorsDialog" type="button">Cerrar</button>
+    </div>
+  </dialog>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script>(() => {
+  "use strict";
+
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const MAX_PREVIEW_XML = 30;
+  const MAX_PREVIEW_ROWS = 20;
+  const MAX_PREVIEW_COLUMNS = 25;
+  const XLSX_SHEET_ROW_LIMIT = 250000;
+  const STORAGE_KEY = "cfdi_excel_layouts_v2";
+  const DEFAULT_LAYOUT_KEY = "cfdi_excel_default_layout_v2";
+
+  const state = {
+    uploadedFiles: [],
+    xmlEntries: [],
+    analysis: { total: 0, valid: 0, concepts: 0, errors: [], types: {} },
+    representation: "concept",
+    outputMode: "consolidated",
+    excludeTechnical: true,
+    convertNumbers: true,
+    includeNewColumns: true,
+    previewRows: [],
+    availableColumns: [],
+    columns: [],
+    layouts: loadLayouts(),
+    activeLayoutId: localStorage.getItem(DEFAULT_LAYOUT_KEY) || "",
+    generatedBlob: null,
+    generatedName: "",
+    dragIndex: null
+  };
+
+  const els = {
+    fileInput: $("#fileInput"),
+    dropzone: $("#dropzone"),
+    fileSummary: $("#fileSummary"),
+    metricXml: $("#metricXml"),
+    metricValid: $("#metricValid"),
+    metricConcepts: $("#metricConcepts"),
+    metricErrors: $("#metricErrors"),
+    errorNotice: $("#errorNotice"),
+    viewErrors: $("#viewErrors"),
+    errorList: $("#errorList"),
+    errorsDialog: $("#errorsDialog"),
+    helpDialog: $("#helpDialog"),
+    openHelp: $("#openHelp"),
+    outputModeSection: $("#outputModeSection"),
+    outputModeOptions: $("#outputModeOptions"),
+    singleFileNotice: $("#singleFileNotice"),
+    fileCountTag: $("#fileCountTag"),
+    excludeTechnical: $("#excludeTechnical"),
+    convertNumbers: $("#convertNumbers"),
+    includeNewColumns: $("#includeNewColumns"),
+    selectedCount: $("#selectedCount"),
+    layoutSelect: $("#layoutSelect"),
+    applyLayout: $("#applyLayout"),
+    importLayout: $("#importLayout"),
+    exportLayout: $("#exportLayout"),
+    layoutFileInput: $("#layoutFileInput"),
+    layoutName: $("#layoutName"),
+    setAsDefault: $("#setAsDefault"),
+    saveLayout: $("#saveLayout"),
+    deleteLayout: $("#deleteLayout"),
+    columnSearch: $("#columnSearch"),
+    selectRecommended: $("#selectRecommended"),
+    selectAll: $("#selectAll"),
+    clearAll: $("#clearAll"),
+    columnList: $("#columnList"),
+    sampleTag: $("#sampleTag"),
+    refreshPreview: $("#refreshPreview"),
+    previewTable: $("#previewTable"),
+    previewEmpty: $("#previewEmpty"),
+    previewDescription: $("#previewDescription"),
+    finalXmlCount: $("#finalXmlCount"),
+    finalRepresentation: $("#finalRepresentation"),
+    finalColumnCount: $("#finalColumnCount"),
+    finalOutput: $("#finalOutput"),
+    processButton: $("#processButton"),
+    processButtonTitle: $("#processButtonTitle"),
+    processButtonSubtitle: $("#processButtonSubtitle"),
+    progressCard: $("#progressCard"),
+    progressTitle: $("#progressTitle"),
+    progressPercent: $("#progressPercent"),
+    progressBar: $("#progressBar"),
+    progressDetail: $("#progressDetail"),
+    resultCard: $("#resultCard"),
+    resultText: $("#resultText"),
+    downloadButton: $("#downloadButton"),
+    sideFiles: $("#sideFiles"),
+    sideXml: $("#sideXml"),
+    sideLayout: $("#sideLayout"),
+    toastContainer: $("#toastContainer")
+  };
+
+  function showToast(message, type = "") {
+    const toast = document.createElement("div");
+    toast.className = `toast ${type ? `toast--${type}` : ""}`;
+    toast.textContent = message;
+    els.toastContainer.appendChild(toast);
+    setTimeout(() => toast.remove(), 3600);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function formatNumber(value) {
+    return new Intl.NumberFormat("es-MX").format(value || 0);
+  }
+
+  function localName(nodeOrName) {
+    const name = typeof nodeOrName === "string"
+      ? nodeOrName
+      : (nodeOrName.localName || nodeOrName.nodeName || "");
+    return name.includes(":") ? name.split(":").pop() : name;
+  }
+
+  function normalizeColumn(value) {
+    return String(value ?? "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^A-Za-z0-9_áéíóúÁÉÍÓÚñÑ.-]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function addUnique(target, key, value) {
+    let candidate = key;
+    let index = 2;
+    while (Object.prototype.hasOwnProperty.call(target, candidate) && target[candidate] !== value) {
+      candidate = `${key}_${index++}`;
+    }
+    target[candidate] = value;
+  }
+
+  function parseXmlDocument(xmlText) {
+    const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+    const parserError = xml.querySelector("parsererror");
+    if (parserError) {
+      throw new Error(parserError.textContent.trim().replace(/\s+/g, " ").slice(0, 260));
+    }
+    return xml;
+  }
+
+  function identifyXmlType(root) {
+    const rootName = localName(root);
+    const version = root.getAttribute("Version") || root.getAttribute("version") || "";
+    const names = new Set(Array.from(root.getElementsByTagName("*")).map(localName));
+    if (rootName === "Comprobante") {
+      if (names.has("Pagos") || names.has("Pago") || names.has("DoctoRelacionado")) {
+        return `CFDI ${version || "sin versión"} - Complemento de pago`;
+      }
+      return `CFDI ${version || "sin versión"}`;
+    }
+    return `XML genérico - ${rootName}`;
+  }
+
+  function flattenElement(node, path, output, options = {}) {
+    const name = localName(node);
+    if (options.skipNames?.has(name)) return;
+
+    const currentPath = path || name;
+    Array.from(node.attributes || []).forEach((attribute) => {
+      const attributeName = localName(attribute.name);
+      if (options.excludeTechnical && ["Sello", "Certificado", "SelloCFD", "SelloSAT"].includes(attributeName)) return;
+      addUnique(output, normalizeColumn(`${currentPath}_${attributeName}`), attribute.value);
+    });
+
+    const elementChildren = Array.from(node.children || []);
+    const text = (node.textContent || "").trim();
+    if (!elementChildren.length && text) {
+      addUnique(output, normalizeColumn(`${currentPath}_Texto`), text);
+    }
+
+    const counts = new Map();
+    elementChildren.forEach((child) => {
+      const childName = localName(child);
+      counts.set(childName, (counts.get(childName) || 0) + 1);
+    });
+
+    const occurrences = new Map();
+    elementChildren.forEach((child) => {
+      const childName = localName(child);
+      const occurrence = (occurrences.get(childName) || 0) + 1;
+      occurrences.set(childName, occurrence);
+      const suffix = counts.get(childName) > 1 ? `_${occurrence}` : "";
+      flattenElement(
+        child,
+        normalizeColumn(`${currentPath}_${childName}${suffix}`),
+        output,
+        options
+      );
+    });
+  }
+
+  function findElements(root, name) {
+    return Array.from(root.getElementsByTagName("*")).filter((node) => localName(node) === name);
+  }
+
+  function rowsFromXml(entry, representation = state.representation) {
+    const xml = parseXmlDocument(entry.text);
+    const root = xml.documentElement;
+    const concepts = findElements(root, "Concepto");
+    const base = {
+      Archivo_XML: entry.name,
+      Tipo_XML: identifyXmlType(root)
+    };
+
+    flattenElement(root, localName(root), base, {
+      skipNames: new Set(["Conceptos"]),
+      excludeTechnical: state.excludeTechnical
+    });
+
+    if (representation === "document") {
+      const row = { ...base, Total_Conceptos: concepts.length };
+      concepts.forEach((concept, index) => {
+        flattenElement(
+          concept,
+          `Concepto_${index + 1}`,
+          row,
+          { excludeTechnical: state.excludeTechnical }
+        );
+      });
+      return [row];
+    }
+
+    if (!concepts.length) return [base];
+
+    return concepts.map((concept, index) => {
+      const row = { ...base, Concepto_Indice: index + 1 };
+      flattenElement(
+        concept,
+        "Concepto",
+        row,
+        { excludeTechnical: state.excludeTechnical }
+      );
+      return row;
+    });
+  }
+
+  async function collectXmlEntries(files) {
+    const entries = [];
+    const errors = [];
+
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+      const file = files[fileIndex];
+      updateProgress(
+        ((fileIndex + 0.15) / Math.max(files.length, 1)) * 100,
+        "Leyendo archivos",
+        file.name
+      );
+
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith(".xml")) {
+        try {
+          entries.push({ name: file.name, text: await file.text() });
+        } catch (error) {
+          errors.push({ file: file.name, error: error.message });
+        }
+      } else if (lowerName.endsWith(".zip")) {
+        try {
+          const zip = await JSZip.loadAsync(file);
+          const zipEntries = Object.values(zip.files)
+            .filter((item) => !item.dir && item.name.toLowerCase().endsWith(".xml"));
+
+          for (let index = 0; index < zipEntries.length; index += 1) {
+            const item = zipEntries[index];
+            try {
+              entries.push({
+                name: `${file.name.replace(/\.zip$/i, "")}/${item.name}`,
+                text: await item.async("string")
+              });
+            } catch (error) {
+              errors.push({ file: `${file.name}/${item.name}`, error: error.message });
+            }
+          }
+        } catch (error) {
+          errors.push({ file: file.name, error: `ZIP inválido: ${error.message}` });
+        }
+      }
+    }
+
+    return { entries, errors };
+  }
+
+  function updateProgress(percent, title, detail) {
+    const cleanPercent = Math.max(0, Math.min(100, Math.round(percent)));
+    els.progressCard.classList.remove("is-hidden");
+    els.progressTitle.textContent = title;
+    els.progressPercent.textContent = `${cleanPercent}%`;
+    els.progressBar.style.width = `${cleanPercent}%`;
+    els.progressDetail.textContent = detail || "";
+  }
+
+  function hideProgress() {
+    els.progressCard.classList.add("is-hidden");
+    els.progressBar.style.width = "0%";
+  }
+
+  function setSectionEnabled(stepNumber, enabled) {
+    const section = $(`[data-step="${stepNumber}"]`);
+    section?.classList.toggle("is-disabled", !enabled);
+  }
+
+  function updateStepper() {
+    const hasFiles = state.analysis.valid > 0;
+    const hasColumns = state.columns.some((column) => column.include);
+
+    $$(".step").forEach((step) => {
+      const number = Number(step.dataset.stepTarget);
+      const complete =
+        (number === 1 && hasFiles) ||
+        (number === 2 && hasFiles) ||
+        (number === 3 && hasFiles && hasColumns);
+      step.classList.toggle("is-complete", complete);
+      step.classList.toggle(
+        "is-active",
+        (number === 1 && !hasFiles) ||
+        (number === 2 && hasFiles && !state.availableColumns.length) ||
+        (number === 3 && state.availableColumns.length && !state.generatedBlob) ||
+        (number === 4 && !!state.generatedBlob)
+      );
+    });
+  }
+
+  function updateSummaryUI() {
+    const { total, valid, concepts, errors } = state.analysis;
+    els.metricXml.textContent = formatNumber(total);
+    els.metricValid.textContent = formatNumber(valid);
+    els.metricConcepts.textContent = formatNumber(concepts);
+    els.metricErrors.textContent = formatNumber(errors.length);
+    els.sideFiles.textContent = formatNumber(state.uploadedFiles.length);
+    els.sideXml.textContent = formatNumber(total);
+    els.fileCountTag.textContent = `${formatNumber(total)} ${total === 1 ? "XML" : "XML"}`;
+    els.fileSummary.classList.toggle("is-hidden", total === 0);
+    els.errorNotice.classList.toggle("is-hidden", errors.length === 0);
+
+    const single = total === 1;
+    els.outputModeOptions.classList.toggle("is-hidden", single);
+    els.singleFileNotice.classList.toggle("is-hidden", !single);
+    if (single) state.outputMode = "individual";
+
+    els.finalXmlCount.textContent = formatNumber(total);
+    els.finalRepresentation.textContent = state.representation === "concept" ? "Por concepto" : "Por comprobante";
+    els.finalColumnCount.textContent = formatNumber(getSelectedColumns().length);
+    els.finalOutput.textContent =
+      total === 1 ? "Excel individual" :
+      state.outputMode === "consolidated" ? "Excel consolidado" : "ZIP de Excel";
+
+    const enabled = valid > 0 && getSelectedColumns().length > 0;
+    els.processButton.disabled = !enabled;
+    els.processButtonTitle.textContent =
+      total === 1 ? "Generar Excel" :
+      state.outputMode === "consolidated" ? "Generar Excel consolidado" : "Generar ZIP de Excel";
+    els.processButtonSubtitle.textContent =
+      enabled ? `${formatNumber(valid)} comprobantes válidos · ${formatNumber(getSelectedColumns().length)} columnas` :
+      "Carga CFDI y selecciona al menos una columna";
+
+    setSectionEnabled(2, valid > 0);
+    setSectionEnabled(3, valid > 0);
+    setSectionEnabled(4, valid > 0);
+    updateStepper();
+  }
+
+  async function handleFiles(files) {
+    state.uploadedFiles = Array.from(files || []);
+    state.generatedBlob = null;
+    state.generatedName = "";
+    els.resultCard.classList.add("is-hidden");
+
+    if (!state.uploadedFiles.length) {
+      resetState();
+      return;
+    }
+
+    updateProgress(4, "Preparando carga", "Leyendo archivos seleccionados...");
+
+    const collected = await collectXmlEntries(state.uploadedFiles);
+    state.xmlEntries = collected.entries;
+    state.analysis = {
+      total: state.xmlEntries.length,
+      valid: 0,
+      concepts: 0,
+      errors: [...collected.errors],
+      types: {}
+    };
+
+    for (let index = 0; index < state.xmlEntries.length; index += 1) {
+      const entry = state.xmlEntries[index];
+      updateProgress(
+        18 + ((index + 1) / Math.max(state.xmlEntries.length, 1)) * 58,
+        "Validando CFDI",
+        `${index + 1} de ${state.xmlEntries.length}: ${entry.name}`
+      );
+
+      try {
+        const xml = parseXmlDocument(entry.text);
+        const root = xml.documentElement;
+        const type = identifyXmlType(root);
+        state.analysis.valid += 1;
+        state.analysis.concepts += findElements(root, "Concepto").length;
+        state.analysis.types[type] = (state.analysis.types[type] || 0) + 1;
+      } catch (error) {
+        state.analysis.errors.push({ file: entry.name, error: error.message });
+      }
+    }
+
+    updateProgress(82, "Preparando vista", "Detectando campos contables...");
+    updateSummaryUI();
+    await buildPreviewAndColumns(true);
+    updateProgress(100, "Carga terminada", "Tus CFDI están listos para configurar.");
+    setTimeout(hideProgress, 650);
+
+    document.querySelector("#step2").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function resetState() {
+    state.uploadedFiles = [];
+    state.xmlEntries = [];
+    state.analysis = { total: 0, valid: 0, concepts: 0, errors: [], types: {} };
+    state.previewRows = [];
+    state.availableColumns = [];
+    state.columns = [];
+    renderColumnList();
+    renderPreview();
+    updateSummaryUI();
+  }
+
+  async function buildPreviewAndColumns(applySavedLayout = false) {
+    const validRows = [];
+    const columnOrder = [];
+    const columnSet = new Set();
+    const sampleEntries = state.xmlEntries.slice(0, MAX_PREVIEW_XML);
+    let accepted = 0;
+
+    for (const entry of sampleEntries) {
+      try {
+        const rows = rowsFromXml(entry);
+        rows.forEach((row) => {
+          Object.keys(row).forEach((column) => {
+            if (!columnSet.has(column)) {
+              columnSet.add(column);
+              columnOrder.push(column);
+            }
+          });
+          if (validRows.length < MAX_PREVIEW_ROWS) validRows.push(row);
+        });
+        accepted += 1;
+      } catch (_) {
+        // Ya se reporta durante el análisis.
+      }
+    }
+
+    state.previewRows = validRows;
+    state.availableColumns = columnOrder;
+
+    const previousByName = new Map(state.columns.map((column) => [column.name, column]));
+    state.columns = columnOrder.map((name, index) => ({
+      name,
+      include: previousByName.has(name) ? previousByName.get(name).include : true,
+      order: index + 1
+    }));
+
+    if (applySavedLayout) {
+      const defaultId = localStorage.getItem(DEFAULT_LAYOUT_KEY);
+      if (defaultId && state.layouts[defaultId]) {
+        applyLayoutObject(state.layouts[defaultId], false);
+      }
+    }
+
+    els.sampleTag.textContent = `Muestra: ${accepted} XML`;
+    els.previewDescription.textContent =
+      `Vista basada en ${accepted} de ${state.analysis.valid} comprobantes válidos.`;
+
+    renderColumnList();
+    renderPreview();
+    updateSummaryUI();
+  }
+
+  function getSelectedColumns() {
+    return state.columns
+      .filter((column) => column.include)
+      .sort((a, b) => a.order - b.order)
+      .map((column) => column.name);
+  }
+
+  function renderColumnList() {
+    const query = els.columnSearch.value.trim().toLowerCase();
+    const sorted = [...state.columns].sort((a, b) => a.order - b.order);
+    const filtered = sorted.filter((column) => column.name.toLowerCase().includes(query));
+
+    els.columnList.innerHTML = "";
+    filtered.forEach((column) => {
+      const actualIndex = state.columns.findIndex((item) => item.name === column.name);
+      const item = document.createElement("div");
+      item.className = "column-item";
+      item.draggable = true;
+      item.dataset.index = String(actualIndex);
+      item.innerHTML = `
+        <div class="column-item__handle" title="Arrastrar">⋮⋮</div>
+        <input type="checkbox" ${column.include ? "checked" : ""} aria-label="Incluir ${escapeHtml(column.name)}">
+        <div class="column-item__name" title="${escapeHtml(column.name)}">${escapeHtml(column.name)}</div>
+        <div class="column-item__actions">
+          <button class="icon-mini" type="button" data-action="up" title="Mover arriba">↑</button>
+          <button class="icon-mini" type="button" data-action="down" title="Mover abajo">↓</button>
+        </div>
+      `;
+
+      const checkbox = $("input[type=checkbox]", item);
+      checkbox.addEventListener("change", () => {
+        column.include = checkbox.checked;
+        renderPreview();
+        updateSummaryUI();
+      });
+
+      $("[data-action=up]", item).addEventListener("click", () => moveColumn(column.name, -1));
+      $("[data-action=down]", item).addEventListener("click", () => moveColumn(column.name, 1));
+
+      item.addEventListener("dragstart", () => {
+        state.dragIndex = state.columns.findIndex((entry) => entry.name === column.name);
+        item.classList.add("is-dragging");
+      });
+      item.addEventListener("dragend", () => {
+        item.classList.remove("is-dragging");
+        state.dragIndex = null;
+      });
+      item.addEventListener("dragover", (event) => event.preventDefault());
+      item.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const targetIndex = state.columns.findIndex((entry) => entry.name === column.name);
+        if (state.dragIndex === null || targetIndex < 0 || state.dragIndex === targetIndex) return;
+        const [moved] = state.columns.splice(state.dragIndex, 1);
+        state.columns.splice(targetIndex, 0, moved);
+        normalizeColumnOrder();
+        renderColumnList();
+        renderPreview();
+      });
+
+      els.columnList.appendChild(item);
+    });
+
+    els.selectedCount.textContent = formatNumber(getSelectedColumns().length);
+    els.finalColumnCount.textContent = formatNumber(getSelectedColumns().length);
+  }
+
+  function normalizeColumnOrder() {
+    state.columns.forEach((column, index) => {
+      column.order = index + 1;
+    });
+  }
+
+  function moveColumn(name, direction) {
+    const sorted = [...state.columns].sort((a, b) => a.order - b.order);
+    const index = sorted.findIndex((column) => column.name === name);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= sorted.length) return;
+    [sorted[index], sorted[targetIndex]] = [sorted[targetIndex], sorted[index]];
+    state.columns = sorted;
+    normalizeColumnOrder();
+    renderColumnList();
+    renderPreview();
+  }
+
+  function recommendedColumn(columnName) {
+    return [
+      /^Archivo_XML$/i,
+      /UUID/i,
+      /Serie/i,
+      /Folio/i,
+      /Fecha(?!.*Timbrado)/i,
+      /Emisor.*Rfc/i,
+      /Emisor.*Nombre/i,
+      /Receptor.*Rfc/i,
+      /Receptor.*Nombre/i,
+      /SubTotal/i,
+      /Total(?!.*Conceptos)/i,
+      /Moneda/i,
+      /TipoDeComprobante/i,
+      /MetodoPago/i,
+      /FormaPago/i,
+      /Concepto.*ClaveProdServ/i,
+      /Concepto.*Descripcion/i,
+      /Concepto.*Cantidad/i,
+      /Concepto.*ValorUnitario/i,
+      /Concepto.*Importe/i,
+      /Impuesto/i,
+      /TasaOCuota/i
+    ].some((pattern) => pattern.test(columnName));
+  }
+
+  function renderPreview() {
+    const columns = getSelectedColumns().slice(0, MAX_PREVIEW_COLUMNS);
+    const rows = state.previewRows.slice(0, MAX_PREVIEW_ROWS);
+    const thead = $("thead", els.previewTable);
+    const tbody = $("tbody", els.previewTable);
+
+    if (!columns.length) {
+      els.previewTable.classList.add("is-hidden");
+      els.previewEmpty.classList.remove("is-hidden");
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      updateSummaryUI();
+      return;
+    }
+
+    els.previewTable.classList.remove("is-hidden");
+    els.previewEmpty.classList.add("is-hidden");
+    thead.innerHTML = `<tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>`;
+    tbody.innerHTML = rows.map((row) => (
+      `<tr>${columns.map((column) => `<td>${escapeHtml(row[column] ?? "")}</td>`).join("")}</tr>`
+    )).join("");
+
+    if (getSelectedColumns().length > MAX_PREVIEW_COLUMNS) {
+      els.previewDescription.textContent =
+        `Mostrando las primeras ${MAX_PREVIEW_COLUMNS} de ${getSelectedColumns().length} columnas seleccionadas.`;
+    }
+
+    updateSummaryUI();
+  }
+
+  function loadLayouts() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function persistLayouts() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.layouts));
+    renderLayoutSelect();
+  }
+
+  function renderLayoutSelect() {
+    const current = els.layoutSelect.value || state.activeLayoutId;
+    const options = Object.entries(state.layouts)
+      .sort(([, a], [, b]) => String(a.name).localeCompare(String(b.name), "es"))
+      .map(([id, layout]) => `<option value="${escapeHtml(id)}">${escapeHtml(layout.name)}</option>`)
+      .join("");
+
+    els.layoutSelect.innerHTML = `<option value="">Sin layout guardado</option>${options}`;
+    if (state.layouts[current]) els.layoutSelect.value = current;
+    els.sideLayout.textContent = state.layouts[state.activeLayoutId]?.name || "Ninguno";
+  }
+
+  function currentLayoutPayload() {
+    return {
+      version: 2,
+      name: els.layoutName.value.trim() || "Mi layout CFDI",
+      representation: state.representation,
+      outputMode: state.outputMode,
+      excludeTechnical: state.excludeTechnical,
+      convertNumbers: state.convertNumbers,
+      includeNewColumns: state.includeNewColumns,
+      columns: state.columns
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((column) => ({
+          name: column.name,
+          include: column.include,
+          order: column.order
+        })),
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  function applyLayoutObject(layout, notify = true) {
+    if (!layout || !Array.isArray(layout.columns)) {
+      showToast("El layout no tiene un formato válido.", "error");
+      return;
+    }
+
+    state.representation = layout.representation === "document" ? "document" : "concept";
+    state.outputMode = layout.outputMode === "individual" ? "individual" : "consolidated";
+    state.excludeTechnical = layout.excludeTechnical !== false;
+    state.convertNumbers = layout.convertNumbers !== false;
+    state.includeNewColumns = layout.includeNewColumns !== false;
+
+    $(`input[name=representation][value=${state.representation}]`).checked = true;
+    if ($(`input[name=outputMode][value=${state.outputMode}]`)) {
+      $(`input[name=outputMode][value=${state.outputMode}]`).checked = true;
+    }
+    els.excludeTechnical.checked = state.excludeTechnical;
+    els.convertNumbers.checked = state.convertNumbers;
+    els.includeNewColumns.checked = state.includeNewColumns;
+    updateChoiceStyles();
+
+    const layoutMap = new Map(layout.columns.map((column) => [column.name, column]));
+    const orderedNames = layout.columns
+      .slice()
+      .sort((a, b) => Number(a.order) - Number(b.order))
+      .map((column) => column.name);
+
+    const allNames = [...orderedNames, ...state.availableColumns.filter((name) => !orderedNames.includes(name))];
+    state.columns = allNames.map((name, index) => {
+      const saved = layoutMap.get(name);
+      return {
+        name,
+        include: saved ? saved.include !== false : state.includeNewColumns,
+        order: index + 1
+      };
+    });
+
+    state.activeLayoutId = Object.keys(state.layouts).find((id) => state.layouts[id] === layout) || state.activeLayoutId;
+    els.layoutName.value = layout.name || "";
+    renderColumnList();
+    renderPreview();
+    updateSummaryUI();
+    if (notify) showToast(`Layout “${layout.name || "sin nombre"}” aplicado.`, "success");
+  }
+
+  function saveCurrentLayout() {
+    if (!state.columns.length) {
+      showToast("Primero carga CFDI y configura las columnas.", "error");
+      return;
+    }
+
+    const payload = currentLayoutPayload();
+    const existingId = els.layoutSelect.value;
+    const id = existingId || `layout_${Date.now()}`;
+    state.layouts[id] = payload;
+    state.activeLayoutId = id;
+
+    if (els.setAsDefault.checked) {
+      localStorage.setItem(DEFAULT_LAYOUT_KEY, id);
+    }
+
+    persistLayouts();
+    els.layoutSelect.value = id;
+    els.sideLayout.textContent = payload.name;
+    showToast("Layout guardado. Se reutilizará en futuras sesiones.", "success");
+  }
+
+  function deleteSelectedLayout() {
+    const id = els.layoutSelect.value;
+    if (!id || !state.layouts[id]) {
+      showToast("Selecciona un layout para eliminarlo.", "error");
+      return;
+    }
+
+    const name = state.layouts[id].name;
+    delete state.layouts[id];
+    if (localStorage.getItem(DEFAULT_LAYOUT_KEY) === id) {
+      localStorage.removeItem(DEFAULT_LAYOUT_KEY);
+    }
+    if (state.activeLayoutId === id) state.activeLayoutId = "";
+    persistLayouts();
+    showToast(`Layout “${name}” eliminado.`);
+  }
+
+  function exportLayout() {
+    const id = els.layoutSelect.value;
+    const layout = id && state.layouts[id] ? state.layouts[id] : currentLayoutPayload();
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `${normalizeColumn(layout.name || "layout_cfdi")}.json`);
+  }
+
+  async function importLayoutFile(file) {
+    try {
+      const payload = JSON.parse(await file.text());
+      if (!Array.isArray(payload.columns)) throw new Error("Falta la lista de columnas.");
+      const id = `layout_${Date.now()}`;
+      state.layouts[id] = payload;
+      persistLayouts();
+      els.layoutSelect.value = id;
+      state.activeLayoutId = id;
+      applyLayoutObject(payload);
+      showToast("Layout importado correctamente.", "success");
+    } catch (error) {
+      showToast(`No se pudo importar el layout: ${error.message}`, "error");
+    }
+  }
+
+  function updateChoiceStyles() {
+    $$(".choice-card").forEach((card) => {
+      const input = $("input", card);
+      card.classList.toggle("is-selected", input.checked);
+    });
+    $$(".segmented__option").forEach((option) => {
+      const input = $("input", option);
+      option.classList.toggle("is-selected", input.checked);
+    });
+  }
+
+  function shouldConvertToNumber(columnName, value) {
+    if (!state.convertNumbers || typeof value !== "string") return false;
+    const numericColumn = /(Total|SubTotal|Importe|Cantidad|ValorUnitario|Descuento|Base|TasaOCuota|TipoCambio)$/i.test(columnName);
+    return numericColumn && /^-?\d+(?:\.\d+)?$/.test(value.trim());
+  }
+
+  function normalizeExcelValue(columnName, value) {
+    return shouldConvertToNumber(columnName, value) ? Number(value) : (value ?? "");
+  }
+
+  function finalColumnsForRows(documentRows) {
+    const selected = getSelectedColumns();
+    if (!state.includeNewColumns) return selected;
+
+    const seen = new Set(selected);
+    const finalColumns = [...selected];
+
+    documentRows.forEach(({ rows }) => {
+      rows.forEach((row) => {
+        Object.keys(row).forEach((column) => {
+          if (!seen.has(column)) {
+            seen.add(column);
+            finalColumns.push(column);
+          }
+        });
+      });
+    });
+
+    return finalColumns;
+  }
+
+  function createWorkbookFromRows(rows, columns, baseSheetName = "CFDI") {
+    const workbook = XLSX.utils.book_new();
+    if (!rows.length) {
+      const worksheet = XLSX.utils.aoa_to_sheet([columns]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, baseSheetName.slice(0, 31));
+      return workbook;
+    }
+
+    for (let start = 0, sheetIndex = 1; start < rows.length; start += XLSX_SHEET_ROW_LIMIT, sheetIndex += 1) {
+      const chunk = rows.slice(start, start + XLSX_SHEET_ROW_LIMIT);
+      const aoa = [
+        columns,
+        ...chunk.map((row) => columns.map((column) => normalizeExcelValue(column, row[column])))
+      ];
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      worksheet["!autofilter"] = { ref: worksheet["!ref"] };
+      worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
+      worksheet["!cols"] = columns.map((column) => ({ wch: Math.min(Math.max(column.length + 2, 12), 38) }));
+      const sheetName = (sheetIndex === 1 ? baseSheetName : `${baseSheetName}_${sheetIndex}`).slice(0, 31);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    }
+
+    return workbook;
+  }
+
+  function workbookToBlob(workbook) {
+    const data = XLSX.write(workbook, { bookType: "xlsx", type: "array", compression: true });
+    return new Blob([data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+  }
+
+  async function processForExport() {
+    if (!state.analysis.valid || !getSelectedColumns().length) return;
+
+    state.generatedBlob = null;
+    els.resultCard.classList.add("is-hidden");
+    updateProgress(2, "Preparando exportación", "Revisando la configuración...");
+
+    const documentRows = [];
+    const errors = [];
+    const totalEntries = state.xmlEntries.length;
+
+    for (let index = 0; index < totalEntries; index += 1) {
+      const entry = state.xmlEntries[index];
+      updateProgress(
+        5 + ((index + 1) / Math.max(totalEntries, 1)) * 58,
+        "Procesando CFDI",
+        `${index + 1} de ${totalEntries}: ${entry.name}`
+      );
+
+      try {
+        documentRows.push({ name: entry.name, rows: rowsFromXml(entry) });
+      } catch (error) {
+        errors.push({ file: entry.name, error: error.message });
+      }
+
+      if (index % 20 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    const columns = finalColumnsForRows(documentRows);
+    if (!columns.length) throw new Error("No hay columnas seleccionadas.");
+
+    if (state.analysis.total === 1 || state.outputMode === "consolidated") {
+      updateProgress(72, "Creando Excel", "Organizando la tabla consolidada...");
+      const allRows = documentRows.flatMap((document) => document.rows);
+      const workbook = createWorkbookFromRows(
+        allRows,
+        columns,
+        state.analysis.total === 1 ? "CFDI" : "CFDI_Consolidado"
+      );
+
+      if (errors.length) {
+        const errorSheet = XLSX.utils.json_to_sheet(errors.map((error) => ({
+          Archivo: error.file,
+          Error: error.error
+        })));
+        XLSX.utils.book_append_sheet(workbook, errorSheet, "Errores");
+      }
+
+      state.generatedBlob = workbookToBlob(workbook);
+      state.generatedName = state.analysis.total === 1
+        ? `${normalizeColumn(state.xmlEntries[0].name.replace(/\.xml$/i, "").split("/").pop())}_convertido.xlsx`
+        : "CFDI_Consolidado.xlsx";
+    } else {
+      updateProgress(70, "Creando archivos individuales", "Preparando el paquete ZIP...");
+      const outputZip = new JSZip();
+      const names = new Map();
+
+      for (let index = 0; index < documentRows.length; index += 1) {
+        const document = documentRows[index];
+        updateProgress(
+          70 + ((index + 1) / Math.max(documentRows.length, 1)) * 24,
+          "Creando archivos individuales",
+          `${index + 1} de ${documentRows.length}: ${document.name}`
+        );
+
+        const workbook = createWorkbookFromRows(document.rows, columns, "CFDI");
+        const workbookData = XLSX.write(workbook, { bookType: "xlsx", type: "array", compression: true });
+        const base = `${normalizeColumn(document.name.replace(/\.xml$/i, "").split("/").pop())}_convertido.xlsx`;
+        const count = (names.get(base) || 0) + 1;
+        names.set(base, count);
+        const finalName = count === 1 ? base : base.replace(/\.xlsx$/i, `_${count}.xlsx`);
+        outputZip.file(finalName, workbookData);
+      }
+
+      if (errors.length) {
+        const csv = [
+          "Archivo,Error",
+          ...errors.map((error) => `"${String(error.file).replaceAll('"', '""')}","${String(error.error).replaceAll('"', '""')}"`)
+        ].join("\n");
+        outputZip.file("reporte_errores.csv", "\ufeff" + csv);
+      }
+
+      state.generatedBlob = await outputZip.generateAsync(
+        { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
+        (metadata) => updateProgress(94 + metadata.percent * 0.05, "Comprimiendo ZIP", `${Math.round(metadata.percent)}%`)
+      );
+      state.generatedName = "CFDI_Individuales.zip";
+    }
+
+    updateProgress(100, "Proceso terminado", "El archivo está listo para descargar.");
+    els.resultText.textContent =
+      `${formatNumber(documentRows.length)} comprobantes procesados · ${formatNumber(columns.length)} columnas · ${formatNumber(errors.length)} observaciones.`;
+    els.resultCard.classList.remove("is-hidden");
+    updateStepper();
+    setTimeout(hideProgress, 650);
+    els.resultCard.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  function renderErrors() {
+    els.errorList.innerHTML = state.analysis.errors.length
+      ? state.analysis.errors.map((error) => `
+          <div class="error-row">
+            <strong>${escapeHtml(error.file)}</strong>
+            <small>${escapeHtml(error.error)}</small>
+          </div>
+        `).join("")
+      : "<p>No hay observaciones.</p>";
+  }
+
+  // Upload.
+  els.fileInput.addEventListener("change", (event) => handleFiles(event.target.files));
+  ["dragenter", "dragover"].forEach((eventName) => {
+    els.dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      els.dropzone.classList.add("is-dragover");
+    });
+  });
+  ["dragleave", "drop"].forEach((eventName) => {
+    els.dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      els.dropzone.classList.remove("is-dragover");
+    });
+  });
+  els.dropzone.addEventListener("drop", (event) => handleFiles(event.dataTransfer.files));
+
+  // Representation and output.
+  $$("input[name=representation]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      state.representation = input.value;
+      updateChoiceStyles();
+      await buildPreviewAndColumns(false);
+    });
+  });
+  $$("input[name=outputMode]").forEach((input) => {
+    input.addEventListener("change", () => {
+      state.outputMode = input.value;
+      updateChoiceStyles();
+      updateSummaryUI();
+    });
+  });
+
+  els.excludeTechnical.addEventListener("change", async () => {
+    state.excludeTechnical = els.excludeTechnical.checked;
+    await buildPreviewAndColumns(false);
+  });
+  els.convertNumbers.addEventListener("change", () => {
+    state.convertNumbers = els.convertNumbers.checked;
+  });
+  els.includeNewColumns.addEventListener("change", () => {
+    state.includeNewColumns = els.includeNewColumns.checked;
+  });
+
+  // Columns.
+  els.columnSearch.addEventListener("input", renderColumnList);
+  els.selectAll.addEventListener("click", () => {
+    state.columns.forEach((column) => { column.include = true; });
+    renderColumnList();
+    renderPreview();
+  });
+  els.clearAll.addEventListener("click", () => {
+    state.columns.forEach((column) => { column.include = false; });
+    renderColumnList();
+    renderPreview();
+  });
+  els.selectRecommended.addEventListener("click", () => {
+    state.columns.forEach((column) => { column.include = recommendedColumn(column.name); });
+    renderColumnList();
+    renderPreview();
+    showToast("Se seleccionaron los campos contables principales.", "success");
+  });
+  els.refreshPreview.addEventListener("click", renderPreview);
+
+  // Layouts.
+  els.saveLayout.addEventListener("click", saveCurrentLayout);
+  els.applyLayout.addEventListener("click", () => {
+    const layout = state.layouts[els.layoutSelect.value];
+    if (!layout) {
+      showToast("Selecciona un layout guardado.", "error");
+      return;
+    }
+    state.activeLayoutId = els.layoutSelect.value;
+    applyLayoutObject(layout);
+  });
+  els.deleteLayout.addEventListener("click", deleteSelectedLayout);
+  els.exportLayout.addEventListener("click", exportLayout);
+  els.importLayout.addEventListener("click", () => els.layoutFileInput.click());
+  els.layoutFileInput.addEventListener("change", (event) => {
+    if (event.target.files?.[0]) importLayoutFile(event.target.files[0]);
+    event.target.value = "";
+  });
+  els.layoutSelect.addEventListener("change", () => {
+    const layout = state.layouts[els.layoutSelect.value];
+    els.layoutName.value = layout?.name || "";
+  });
+
+  // Dialogs and navigation.
+  els.openHelp.addEventListener("click", () => els.helpDialog.showModal());
+  els.viewErrors.addEventListener("click", () => {
+    renderErrors();
+    els.errorsDialog.showModal();
+  });
+  $$("[data-close-dialog]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.getElementById(button.dataset.closeDialog)?.close();
+    });
+  });
+  $$(".step").forEach((step) => {
+    step.addEventListener("click", () => {
+      document.querySelector(`[data-step="${step.dataset.stepTarget}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  // Export.
+  els.processButton.addEventListener("click", async () => {
+    try {
+      await processForExport();
+    } catch (error) {
+      hideProgress();
+      showToast(`No se pudo generar el archivo: ${error.message}`, "error");
+    }
+  });
+  els.downloadButton.addEventListener("click", () => {
+    if (state.generatedBlob) {
+      downloadBlob(state.generatedBlob, state.generatedName);
+    }
+  });
+
+  // Initialization.
+  renderLayoutSelect();
+  updateChoiceStyles();
+  updateSummaryUI();
+})();</script>
+</body>
+</html>

@@ -1,78 +1,28 @@
-# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.pyd
-*.so
-
-# Entornos virtuales
 .venv/
 venv/
 env/
-ENV/
-
-# Streamlit
 .streamlit/secrets.toml
 .streamlit/credentials.toml
-
-# Variables de entorno
 .env
 .env.*
 !.env.example
-
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
-
-# IDEs y editores
 .vscode/
 .idea/
-*.code-workspace
-
-# Sistema operativo
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Archivos temporales
-tmp/
-temp/
-*.tmp
-*.temp
 *.log
+*.tmp
 *.bak
-*.swp
-~$*
-
-# Salidas generadas por la app
+*.xml
 *.xlsx
 *.xls
 *.csv
 *.parquet
 *.zip
-
-# CFDI/XML reales o sensibles
 uploads/
 input/
 output/
 outputs/
-examples/*.xml
-*.cer
-*.key
-*.pfx
-*.pem
-
-# Pruebas y cobertura
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Empaquetado
-build/
-dist/
-*.egg-info/
-
-# Cachés
-.cache/
-.mypy_cache/
-.ruff_cache/

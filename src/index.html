@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
+  <title>CFDI a Excel</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>/*__CSS__*/</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">CF</div>
+        <div>
+          <div class="brand__eyebrow">Herramienta contable</div>
+          <div class="brand__name">CFDI a Excel</div>
+        </div>
+      </div>
+      <button class="button button--ghost button--small" id="openHelp" type="button">
+        <span aria-hidden="true">?</span>
+        Ayuda
+      </button>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <div class="hero__copy">
+          <div class="pill">
+            <span class="pill__dot"></span>
+            Conversión segura y ordenada
+          </div>
+          <h1>Organiza tus CFDI en Excel<br><span>sin capturar datos a mano</span></h1>
+          <p>
+            Carga XML o ZIP, revisa cómo quedará la tabla, elige las columnas
+            contables y descarga un archivo listo para trabajar.
+          </p>
+          <div class="hero__trust">
+            <span>✓ Los archivos se procesan en tu navegador</span>
+            <span>✓ No se envían a un servidor externo</span>
+          </div>
+        </div>
+        <div class="hero__visual" aria-hidden="true">
+          <div class="doc-card doc-card--xml">
+            <span class="doc-card__icon">&lt;/&gt;</span>
+            <strong>CFDI XML</strong>
+            <small>Facturas y complementos</small>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="doc-card doc-card--excel">
+            <span class="doc-card__icon">X</span>
+            <strong>Excel</strong>
+            <small>Ordenado y filtrable</small>
+          </div>
+        </div>
+      </section>
+
+      <nav class="stepper" aria-label="Progreso">
+        <button class="step is-active" data-step-target="1" type="button">
+          <span>1</span>
+          <div><strong>Cargar</strong><small>XML o ZIP</small></div>
+        </button>
+        <button class="step" data-step-target="2" type="button">
+          <span>2</span>
+          <div><strong>Configurar</strong><small>Vista y salida</small></div>
+        </button>
+        <button class="step" data-step-target="3" type="button">
+          <span>3</span>
+          <div><strong>Columnas</strong><small>Elegir y ordenar</small></div>
+        </button>
+        <button class="step" data-step-target="4" type="button">
+          <span>4</span>
+          <div><strong>Descargar</strong><small>Excel o ZIP</small></div>
+        </button>
+      </nav>
+
+      <section class="workspace">
+        <section class="panel panel--main">
+          <div class="section" id="step1" data-step="1">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 1</span>
+                <h2>Carga tus comprobantes</h2>
+                <p>Puedes seleccionar un XML, varios XML o uno o varios ZIP.</p>
+              </div>
+            </div>
+
+            <label class="dropzone" id="dropzone" for="fileInput">
+              <input id="fileInput" type="file" accept=".xml,.zip,text/xml,application/zip" multiple>
+              <div class="dropzone__icon">⇧</div>
+              <strong>Arrastra aquí tus archivos</strong>
+              <span>o haz clic para buscarlos en tu computadora</span>
+              <small>Formatos admitidos: XML y ZIP</small>
+            </label>
+
+            <div class="file-summary is-hidden" id="fileSummary">
+              <div class="metric">
+                <span class="metric__label">XML encontrados</span>
+                <strong id="metricXml">0</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label">Comprobantes válidos</span>
+                <strong id="metricValid">0</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label">Conceptos</span>
+                <strong id="metricConcepts">0</strong>
+              </div>
+              <div class="metric metric--warning">
+                <span class="metric__label">Con observaciones</span>
+                <strong id="metricErrors">0</strong>
+              </div>
+            </div>
+
+            <div class="notice notice--warning is-hidden" id="errorNotice">
+              <div>
+                <strong>Algunos archivos no pudieron leerse</strong>
+                <p>La conversión continuará con los comprobantes válidos.</p>
+              </div>
+              <button class="link-button" id="viewErrors" type="button">Ver detalle</button>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step2" data-step="2">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 2</span>
+                <h2>Define cómo quieres tu Excel</h2>
+                <p>Elige el nivel de detalle que mejor se adapte a tu trabajo.</p>
+              </div>
+            </div>
+
+            <div class="choice-grid">
+              <label class="choice-card is-selected">
+                <input type="radio" name="representation" value="concept" checked>
+                <div class="choice-card__top">
+                  <span class="choice-card__icon">🧾</span>
+                  <span class="choice-card__check">✓</span>
+                </div>
+                <strong>Una fila por concepto</strong>
+                <p>Cada producto o servicio ocupa una fila.</p>
+                <small>Recomendado para compras, gastos, impuestos y Power BI.</small>
+              </label>
+
+              <label class="choice-card">
+                <input type="radio" name="representation" value="document">
+                <div class="choice-card__top">
+                  <span class="choice-card__icon">📄</span>
+                  <span class="choice-card__check">✓</span>
+                </div>
+                <strong>Una fila por comprobante</strong>
+                <p>Cada XML ocupa una sola fila.</p>
+                <small>Recomendado para revisar folios, proveedores y totales.</small>
+              </label>
+            </div>
+
+            <div class="subsection" id="outputModeSection">
+              <div class="subsection__title">
+                <h3>Forma de descarga</h3>
+                <span class="tag" id="fileCountTag">1 archivo</span>
+              </div>
+
+              <div class="segmented" id="outputModeOptions">
+                <label class="segmented__option is-selected">
+                  <input type="radio" name="outputMode" value="consolidated" checked>
+                  <span>
+                    <strong>Un solo Excel consolidado</strong>
+                    <small>Todos los CFDI en una misma tabla</small>
+                  </span>
+                </label>
+                <label class="segmented__option">
+                  <input type="radio" name="outputMode" value="individual">
+                  <span>
+                    <strong>Un Excel por cada XML</strong>
+                    <small>Se descargan juntos dentro de un ZIP</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="notice notice--info is-hidden" id="singleFileNotice">
+                <div>
+                  <strong>Solo cargaste un XML</strong>
+                  <p>Se generará un Excel individual; no hay archivos que unir.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="options-grid">
+              <label class="toggle-row">
+                <span>
+                  <strong>Ocultar sellos y certificados</strong>
+                  <small>Reduce el tamaño y deja visibles los datos contables.</small>
+                </span>
+                <input class="switch" id="excludeTechnical" type="checkbox" checked>
+              </label>
+
+              <label class="toggle-row">
+                <span>
+                  <strong>Convertir importes a números</strong>
+                  <small>Permite sumar y calcular directamente en Excel.</small>
+                </span>
+                <input class="switch" id="convertNumbers" type="checkbox" checked>
+              </label>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step3" data-step="3">
+            <div class="section__header section__header--split">
+              <div>
+                <span class="section__kicker">Paso 3</span>
+                <h2>Elige y ordena las columnas</h2>
+                <p>La selección se aplicará al preview y al archivo descargado.</p>
+              </div>
+              <div class="selected-counter">
+                <strong id="selectedCount">0</strong>
+                <span>columnas seleccionadas</span>
+              </div>
+            </div>
+
+            <div class="layout-toolbar">
+              <div class="layout-toolbar__group">
+                <label class="field">
+                  <span>Layout guardado</span>
+                  <select id="layoutSelect">
+                    <option value="">Sin layout guardado</option>
+                  </select>
+                </label>
+                <button class="button button--secondary" id="applyLayout" type="button">Aplicar</button>
+              </div>
+              <div class="layout-toolbar__group">
+                <button class="button button--ghost" id="importLayout" type="button">Importar JSON</button>
+                <input class="is-hidden" id="layoutFileInput" type="file" accept=".json,application/json">
+                <button class="button button--ghost" id="exportLayout" type="button">Exportar JSON</button>
+              </div>
+            </div>
+
+            <div class="column-workbench">
+              <aside class="column-sidebar">
+                <div class="field">
+                  <span>Buscar columna</span>
+                  <div class="search">
+                    <span>⌕</span>
+                    <input id="columnSearch" type="search" placeholder="Ej. UUID, RFC, Total...">
+                  </div>
+                </div>
+
+                <div class="quick-actions">
+                  <button class="chip" id="selectRecommended" type="button">Campos contables</button>
+                  <button class="chip" id="selectAll" type="button">Seleccionar todo</button>
+                  <button class="chip" id="clearAll" type="button">Quitar todo</button>
+                </div>
+
+                <label class="toggle-row toggle-row--compact">
+                  <span>
+                    <strong>Agregar campos nuevos</strong>
+                    <small>Los coloca al final si aparecen en otros XML.</small>
+                  </span>
+                  <input class="switch" id="includeNewColumns" type="checkbox" checked>
+                </label>
+
+                <div class="layout-save-card">
+                  <strong>Guardar esta vista</strong>
+                  <p>La próxima vez se seleccionarán las mismas columnas.</p>
+                  <input id="layoutName" type="text" placeholder="Ej. Gastos mensuales">
+                  <label class="checkbox-line">
+                    <input id="setAsDefault" type="checkbox" checked>
+                    Usar automáticamente la próxima vez
+                  </label>
+                  <button class="button button--primary" id="saveLayout" type="button">Guardar layout</button>
+                  <button class="link-button link-button--danger" id="deleteLayout" type="button">Eliminar layout seleccionado</button>
+                </div>
+              </aside>
+
+              <div class="column-main">
+                <div class="column-list-header">
+                  <div>
+                    <strong>Columnas del Excel</strong>
+                    <small>Arrastra para cambiar el orden o usa las flechas.</small>
+                  </div>
+                  <span class="tag" id="sampleTag">Muestra</span>
+                </div>
+
+                <div class="column-list" id="columnList"></div>
+              </div>
+            </div>
+
+            <div class="preview-card">
+              <div class="preview-card__header">
+                <div>
+                  <h3>Vista previa del resultado</h3>
+                  <p id="previewDescription">Así se verá el Excel con las columnas seleccionadas.</p>
+                </div>
+                <button class="button button--ghost button--small" id="refreshPreview" type="button">Actualizar preview</button>
+              </div>
+              <div class="table-wrap">
+                <table id="previewTable">
+                  <thead></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="preview-empty is-hidden" id="previewEmpty">
+                Selecciona al menos una columna para ver la vista previa.
+              </div>
+            </div>
+          </div>
+
+          <div class="section is-disabled" id="step4" data-step="4">
+            <div class="section__header">
+              <div>
+                <span class="section__kicker">Paso 4</span>
+                <h2>Revisa y descarga</h2>
+                <p>Confirma el resumen antes de generar el archivo final.</p>
+              </div>
+            </div>
+
+            <div class="final-summary">
+              <div><span>Comprobantes</span><strong id="finalXmlCount">0</strong></div>
+              <div><span>Estructura</span><strong id="finalRepresentation">Por concepto</strong></div>
+              <div><span>Columnas</span><strong id="finalColumnCount">0</strong></div>
+              <div><span>Salida</span><strong id="finalOutput">Excel</strong></div>
+            </div>
+
+            <button class="button button--download" id="processButton" type="button" disabled>
+              <span class="button__icon">↓</span>
+              <span>
+                <strong id="processButtonTitle">Generar archivo</strong>
+                <small id="processButtonSubtitle">Primero carga tus CFDI</small>
+              </span>
+            </button>
+
+            <div class="progress-card is-hidden" id="progressCard">
+              <div class="progress-card__top">
+                <strong id="progressTitle">Procesando CFDI</strong>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress"><div id="progressBar"></div></div>
+              <small id="progressDetail">Preparando archivos...</small>
+            </div>
+
+            <div class="result-card is-hidden" id="resultCard">
+              <div class="result-card__icon">✓</div>
+              <div>
+                <strong>Tu archivo está listo</strong>
+                <p id="resultText">La conversión terminó correctamente.</p>
+              </div>
+              <button class="button button--primary" id="downloadButton" type="button">Descargar ahora</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel panel--aside">
+          <div class="aside-card">
+            <span class="aside-card__icon">💡</span>
+            <h3>Recomendación contable</h3>
+            <p>
+              Usa <strong>una fila por concepto</strong> cuando necesites analizar
+              productos, servicios, IVA o gastos por proveedor.
+            </p>
+          </div>
+
+          <div class="aside-card">
+            <span class="aside-card__icon">🔒</span>
+            <h3>Tus archivos permanecen privados</h3>
+            <p>
+              El procesamiento ocurre dentro de tu navegador. La app no guarda
+              ni transmite tus XML.
+            </p>
+          </div>
+
+          <div class="aside-card aside-card--compact">
+            <h3>Resumen de la sesión</h3>
+            <dl class="session-summary">
+              <div><dt>Archivos cargados</dt><dd id="sideFiles">0</dd></div>
+              <div><dt>XML detectados</dt><dd id="sideXml">0</dd></div>
+              <div><dt>Layout activo</dt><dd id="sideLayout">Ninguno</dd></div>
+            </dl>
+          </div>
+        </aside>
+      </section>
+
+      <footer>
+        <span>CFDI a Excel · Herramienta para organización contable</span>
+        <span>Hecho con cariño por tu novio, el ingeniero 😎</span>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="helpDialog">
+    <div class="dialog__header">
+      <div>
+        <span class="section__kicker">Ayuda rápida</span>
+        <h2>¿Cómo usar la herramienta?</h2>
+      </div>
+      <button class="icon-button" data-close-dialog="helpDialog" type="button">×</button>
+    </div>
+    <ol class="help-list">
+      <li><strong>Carga</strong> XML sueltos o archivos ZIP con CFDI.</li>
+      <li><strong>Elige</strong> si necesitas una fila por concepto o por comprobante.</li>
+      <li><strong>Selecciona</strong> las columnas y acomódalas en el orden deseado.</li>
+      <li><strong>Guarda el layout</strong> para usar la misma vista en futuras sesiones.</li>
+      <li><strong>Genera y descarga</strong> el Excel consolidado o el ZIP de archivos individuales.</li>
+    </ol>
+    <div class="dialog__actions">
+      <button class="button button--primary" data-close-dialog="helpDialog" type="button">Entendido</button>
+    </div>
+  </dialog>
+
+  <dialog id="errorsDialog">
+    <div class="dialog__header">
+      <div>
+        <span class="section__kicker">Observaciones</span>
+        <h2>Archivos que no pudieron procesarse</h2>
+      </div>
+      <button class="icon-button" data-close-dialog="errorsDialog" type="button">×</button>
+    </div>
+    <div class="error-list" id="errorList"></div>
+    <div class="dialog__actions">
+      <button class="button button--primary" data-close-dialog="errorsDialog" type="button">Cerrar</button>
+    </div>
+  </dialog>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script>/*__JS__*/</script>
+</body>
+</html>
